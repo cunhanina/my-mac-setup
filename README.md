@@ -9,63 +9,100 @@
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
-[Installation](#-installation) • [Features](#-features) • [Structure](#-structure)
+[The Stack](#-the-stack) • [Features](#-features) • [Installation](#-quick-start)
 
 </div>
 
 ---
-## 🚀 Installation
 
-Set up a fresh Mac in **under 30 seconds** with one command:
+## 🖼️ The Look
+<div align="center">
+<img width="600" height="500" alt="image" src="https://github.com/user-attachments/assets/a0f44fbb-7d62-4311-9eb1-037c40c64c1d" />
+</div>
 
-```bash
-git clone [https://github.com/cunhanina/my-mac-setup.git](https://github.com/cunhanina/my-mac-setup.git)
-cd my-mac-setup
-./install.sh
-```
+---
+
+## 💻 The Stack
+The core technologies driving this environment.
+
+| Component | Choice | Why? |
+| :--- | :--- | :--- |
+| **Shell** | `Oh My Zsh` | The industry standard for shell management. |
+| **Theme** | `Powerlevel10k` | Instant startup, git status, and icons. |
+| **Font** | `JetBrains Mono` | The best ligature support for coding. |
+| **Colors** | `Catppuccin` | Soothing, high-contrast purple/pastel palette. |
+| **Python** | `uv` | Replaces pip/poetry. 10x-100x faster package management. |
+
+---
 
 ## ✨ Features
+Custom scripts designed for "Lazy Productivity."
 
-### 🛠 Automation Tools
+### 🛠 Workflow Automation
 | Command | Function |
 |:---|:---|
-| `newpy` | **Project Generator.** Creates repo, venv, and pushes to GitHub instantly. |
+| `newpy` | **Project Generator.** Creates repo, installs venv, and pushes to GitHub instantly. |
 | `pj` | **Teleporter.** Instantly jump between projects. |
 | `save` | **Lazy Git.** `git add` + `commit` + `push` in one go. |
-| `focus` | **Deep Work.** Opens coding playlists, docs, and blocks distractions. |
+| `note` | **Context-Aware Tasks.** Detects if you are in a project or global scope. |
 
-### 🧠 Productivity
+### ⚙️ System & Maintenance
 | Command | Function |
 |:---|:---|
-| `note` | **Context-Aware Tasks.** Detects if you are in a project or global scope. |
-| `organize` | **Auto-Cleaner.** Sorts Downloads folder into Images, Code, PDFs. |
+| `health` | **Status Dashboard.** Checks battery, internet connection, and disk space. |
+| `ports` | **Port Scanner.** Shows active listening ports (Great for Flask/Django). |
+| `update` | **System Updater.** Updates Homebrew, Zsh, and tools in one click. |
+| `clean` | **System Flush.** Clears DNS cache and frees up RAM. |
 | `pyclean` | **Janitor.** Recursively nukes `__pycache__` and `.DS_Store`. |
+| `organize` | **File Sorter.** Cleans up the Downloads folder automatically. |
 
 ---
 
-## 📂 Structure
+## 🚀 Quick Start
 
-```text
-my-mac-setup/
-├── config/
-│   ├── zshrc.backup       # Configuration for Z Shell
-│   └── p10k.zsh          # Powerlevel10k Theme Config
-├── scripts/
-│   ├── newpy             # Python project generator
-│   ├── note              # Task manager
-│   ├── focus             # Work mode activator
-│   └── ...
-├── install.sh            # The "One-Click" installer
-└── README.md
+### Phase 1: The Foundation
+Perform these steps manually on a fresh Mac to prepare the environment.
+
+**1. Install Command Line Tools**
+```bash
+xcode-select --install
 ```
 
-## 🎨 Aesthetics
-- **Shell:** Oh My Zsh + Powerlevel10k
-- **Theme:** Catppuccin Macchiato / Dracula
-- **Font:** MesloLGS NF
-- **Plugins:** `git`, `zsh-autosuggestions`, `syntax-highlighting`
+**2. Install Homebrew**
+```bash
+/bin/bash -c "$(curl -fsSL [https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh](https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh))"
+```
 
----
+**3. Install Core Apps & Fonts**
+```bash
+brew install --cask iterm2 font-jetbrains-mono-nerd-font
+brew install git gh bat glow uv
+```
+
+**4. Install Oh My Zsh**
+```bash
+sh -c "$(curl -fsSL [https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh](https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh))"
+```
+
+**5. Install Powerlevel10k**
+```bash
+git clone --depth=1 [https://github.com/romkatv/powerlevel10k.git](https://github.com/romkatv/powerlevel10k.git) ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+```
+
+### Phase 2: The Automation
+Now, clone this repo and let the installer configure your aliases, paths, and plugins.
+
+```bash
+# 1. Login to GitHub
+gh auth login
+
+# 2. Clone this repo
+git clone [https://github.com/cunhanina/my-mac-setup.git](https://github.com/cunhanina/my-mac-setup.git)
+cd my-mac-setup
+
+# 3. Run the installer
+./install.sh
+```
 
 <div align="center">
   <sub>Built with ❤️ by <a href="https://github.com/cunhanina">cunhanina</a></sub>
