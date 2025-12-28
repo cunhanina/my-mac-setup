@@ -1,0 +1,25 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+PROJECTS_DIR="$HOME/Desktop/coding/python"
+
+# If no argument, list projects
+if [ -z "$1" ]; then
+  header "YOUR PROJECTS"
+  ls "$PROJECTS_DIR"
+  echo ""
+  echo "👉 Usage: pj <name>"
+  exit 0
+fi
+
+# If argument provided, jump there
+TARGET="$PROJECTS_DIR/$1"
+
+if [ -d "$TARGET" ]; then
+  # We use a special trick to change the directory of your current shell
+  # (Requires the alias step below to work fully, but this script checks validity)
+  echo "$TARGET"
+else
+  err "Project '$1' not found."
+  exit 1
+fi

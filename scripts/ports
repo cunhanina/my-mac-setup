@@ -1,0 +1,7 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+header "OPEN PORTS (Listening)"
+echo "  PID    APP          PORT"
+echo "  --------------------------"
+lsof -iTCP -sTCP:LISTEN -n -P | awk 'NR>1 {print "  " $2, $1, $9}' | column -t

@@ -1,0 +1,52 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+if [ -z "$1" ]; then
+  err "Usage: newpy <project_name>"
+  exit 1
+fi
+
+NAME=$1
+BASE_DIR="$HOME/Desktop/coding/python"
+TARGET_DIR="$BASE_DIR/$NAME"
+
+header "🚀 Creating Project: $NAME"
+
+# Ensure base folder
+mkdir -p "$BASE_DIR"
+
+if [ -d "$TARGET_DIR" ]; then
+  err "Project '$NAME' already exists."
+  exit 1
+fi
+
+mkdir "$TARGET_DIR"
+cd "$TARGET_DIR"
+
+# Initialize uv
+uv init --app --name "$NAME" --quiet
+uv add --dev ruff pytest black --quiet
+
+# Structure
+mkdir -p src tests
+if [ -f "hello.py" ]; then mv hello.py src/main.py; else echo "print('Hello')" > src/main.py; fi
+
+# --- NEW: Create the Project To-Do ---
+echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
+
+# Git setup
+git init -q
+curl -s https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore > .gitignore
+
+# --- NEW: Ignore the To-Do file ---
+echo "\n# Local Notes\ntodo.md" >> .gitignore
+
+git add .
+git commit -m "Initial commit" -q
+
+ok "Created at: $TARGET_DIR"
+
+if command -v code &>/dev/null; then
+    code .
+    ok "Opened in VS Code"
+fi

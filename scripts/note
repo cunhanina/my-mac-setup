@@ -1,0 +1,96 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+# --- 1. DETECT CONTEXT ---
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    PROJECT_ROOT=$(git rev-parse --show-toplevel)
+    CURRENT_FILE="$PROJECT_ROOT/todo.md"
+    CONTEXT="📂 PROJECT: $(basename "$PROJECT_ROOT")"
+    if [ ! -f "$CURRENT_FILE" ]; then
+        echo "# 📝 To-Do: $(basename "$PROJECT_ROOT")\n" > "$CURRENT_FILE"
+    fi
+else
+    CURRENT_FILE="$HOME/Desktop/notes.md"
+    CONTEXT="🌍 GLOBAL NOTES"
+    touch "$CURRENT_FILE"
+fi
+
+# --- 2. HELPER FUNCTIONS ---
+get_line_number() {
+    local task_num=$1
+    grep -n "\- \[ \]" "$CURRENT_FILE" | sed -n "${task_num}p" | cut -d: -f1
+}
+
+# --- 3. COMMAND LOGIC ---
+
+# MODE: VIEW (No arguments)
+if [ -z "$1" ]; then
+    header "$CONTEXT"
+    
+    if [ ! -s "$CURRENT_FILE" ]; then
+        warn "List is empty."
+        exit 0
+    fi
+
+    # 1. Show the "Interactive List" (So you know the numbers)
+    echo "${BOLD}Pending Tasks (Use number to complete):${RESET}"
+    grep "\- \[ \]" "$CURRENT_FILE" | awk '{print "  " NR ". " substr($0, 7)}'
+    
+    echo ""
+    echo "───────────────────────────────────────────────"
+    
+    # 2. Show the "Beautiful View" using Glow
+    if command -v glow &>/dev/null; then
+        # -w 0 tells glow to use the full width of the terminal
+        glow "$CURRENT_FILE" -w 0
+    elif command -v bat &>/dev/null; then
+        bat --style=plain --language=markdown "$CURRENT_FILE"
+    else
+        cat "$CURRENT_FILE"
+    fi
+    exit 0
+fi
+
+# MODE: DONE
+if [[ "$CMD" == "done" || "$CMD" == "x" ]] || [[ "$1" == "done" || "$1" == "x" ]]; then
+    # Handle case where user types "note done 1" vs "note x 1"
+    if [[ "$1" == "done" || "$1" == "x" ]]; then shift; fi
+    
+    TASK_INDEX=$1
+    if [ -z "$TASK_INDEX" ]; then err "Usage: note done <number>"; exit 1; fi
+    
+    REAL_LINE=$(get_line_number "$TASK_INDEX")
+    if [ -z "$REAL_LINE" ]; then err "Task #$TASK_INDEX not found."; exit 1; fi
+    
+    sed -i '' "${REAL_LINE}s/\[ \]/\[x\]/" "$CURRENT_FILE"
+    TIMESTAMP=$(date '+%Y-%m-%d %H:%M')
+    sed -i '' "${REAL_LINE}s/$/ (Done: $TIMESTAMP)/" "$CURRENT_FILE"
+    
+    ok "Task #$TASK_INDEX marked as done."
+    exit 0
+fi
+
+# MODE: SUB-NOTE
+if [[ "$1" == "sub" ]]; then
+    shift
+    TASK_INDEX=$1
+    shift
+    NOTE_TEXT="$*"
+    
+    if [ -z "$TASK_INDEX" ] || [ -z "$NOTE_TEXT" ]; then err "Usage: note sub <number> <text>"; exit 1; fi
+    
+    REAL_LINE=$(get_line_number "$TASK_INDEX")
+    if [ -z "$REAL_LINE" ]; then err "Task #$TASK_INDEX not found."; exit 1; fi
+    
+    sed -i '' "${REAL_LINE}a\\
+    - $NOTE_TEXT
+" "$CURRENT_FILE"
+    
+    ok "Added sub-note."
+    exit 0
+fi
+
+# MODE: ADD TASK
+TASK="$*"
+echo "- [ ] $TASK" >> "$CURRENT_FILE"
+ok "Task added."

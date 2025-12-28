@@ -1,0 +1,40 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+header "SYSTEM HEALTH"
+# Uptime & Load
+uptime_clean=$(uptime | sed 's/.*up \([^,]*\), .*/\1/')
+row "Uptime" "$uptime_clean"
+row "Disk Usage" "$(df -h / | awk 'NR==2 {print $5 " used"}')"
+# Memory
+mem_pressure=$(memory_pressure | grep "System-wide" | awk '{print $5}')
+row "Mem Pressure" "$mem_pressure"
+# Battery
+if pmset -g batt | grep -q "InternalBattery"; then
+    batt_pct=$(pmset -g batt | grep -o "[0-9]*%")
+    row "Battery" "$batt_pct"
+fi
+
+header "NETWORK"
+# Interface
+iface=$(route get default 2>/dev/null | awk '/interface/ {print $2}')
+row "Interface" "${iface:-N/A}"
+# Local IP
+local_ip=$(ipconfig getifaddr "$iface" 2>/dev/null)
+row "Local IP" "${local_ip:-Offline}"
+# Ping check
+if ping -c 1 -W 500 8.8.8.8 &>/dev/null; then
+    ok "Internet Connected"
+else
+    err "No Internet"
+fi
+
+header "ENVIRONMENT"
+row "User" "$(whoami)"
+row "Shell" "$SHELL"
+# Check Python
+if command -v uv &>/dev/null; then
+    row "uv version" "$(uv --version | awk '{print $2}')"
+else
+    warn "uv not installed"
+fi

@@ -1,0 +1,52 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+# If no argument, run general system maintenance
+if [ -z "$1" ]; then
+    header "System Maintenance"
+    
+    warn "This will clear system caches and DNS."
+    read -q "REPLY?  Proceed? (y/n) "
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 0; fi
+
+    echo "  🧹 Flushing DNS..."
+    sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+    
+    echo "  🧹 Purging inactive memory..."
+    sudo purge
+    
+    if command -v brew &>/dev/null; then
+        echo "  🍺 Cleaning Homebrew..."
+        brew cleanup -s &>/dev/null
+    fi
+    
+    ok "System Optimized."
+    exit 0
+fi
+
+# If argument provided, clean specific app
+APP=$1
+header "App Cleanup: $APP"
+
+echo "  🔎 Searching Spotlight index..."
+# mdfind is instant, unlike 'find'
+matches=$(mdfind -name "$APP" | grep -E "Library/|Application Support/|Cache")
+
+if [ -z "$matches" ]; then
+    ok "No leftover files found."
+    exit 0
+fi
+
+echo "$matches"
+echo ""
+warn "Found the above files."
+read -q "REPLY?  Delete them? (y/n) "
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "$matches" | xargs rm -rf
+    ok "Deleted."
+else
+    err "Aborted."
+fi

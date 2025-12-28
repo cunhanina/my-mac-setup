@@ -1,0 +1,18 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+header "🧹 Python Deep Clean"
+
+# Find and delete __pycache__ directories
+find . -type d -name "__pycache__" -exec rm -rf {} +
+echo "  ✔ Deleted __pycache__ folders"
+
+# Find and delete .pyc files (compiled python)
+find . -type f -name "*.pyc" -delete
+echo "  ✔ Deleted .pyc files"
+
+# Find and delete Mac junk
+find . -type f -name ".DS_Store" -delete
+echo "  ✔ Deleted .DS_Store files"
+
+ok "Cleaned current directory recursively."

@@ -1,0 +1,39 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+header "SYSTEM UPDATE"
+
+# 1. Update Homebrew (The tools manager)
+if command -v brew &>/dev/null; then
+    row "Homebrew" "Updating..."
+    # 'brew update' fetches list, 'upgrade' installs new versions
+    brew update && brew upgrade
+    # Remove old versions to save space
+    brew cleanup -s &>/dev/null
+    ok "Homebrew updated & cleaned"
+else
+    warn "Homebrew not found"
+fi
+
+echo ""
+
+# 2. Update uv (The Python manager)
+if command -v uv &>/dev/null; then
+    row "uv" "Checking for updates..."
+    uv self update
+else
+    warn "uv not found"
+fi
+
+echo ""
+
+# 3. Update Oh My Zsh (The shell)
+if [ -f "$ZSH/tools/upgrade.sh" ]; then
+    row "Oh My Zsh" "Updating..."
+    # We run this in a subshell to prevent it from restarting the terminal mid-script
+    env ZSH=$ZSH sh $ZSH/tools/upgrade.sh
+    ok "Shell updated"
+fi
+
+echo ""
+ok "Update Complete!"

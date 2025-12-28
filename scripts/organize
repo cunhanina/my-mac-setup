@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+import os
+import shutil
+from pathlib import Path
+
+# Where to clean
+DOWNLOADS = Path(os.path.expanduser("~/Downloads"))
+
+# Where things go
+FOLDERS = {
+    "Images": [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"],
+    "Documents": [".pdf", ".docx", ".txt", ".xlsx", ".pptx", ".csv"],
+    "Archives": [".zip", ".tar", ".gz", ".rar", ".dmg", ".pkg"],
+    "Code": [".py", ".js", ".html", ".css", ".cpp", ".ipynb", ".json"],
+    "Installers": [".dmg", ".pkg", ".iso"]
+}
+
+def clean():
+    if not DOWNLOADS.exists():
+        print("❌ Downloads folder not found.")
+        return
+
+    print(f"🧹 Organizing {DOWNLOADS}...")
+    
+    moved_count = 0
+
+    for file in DOWNLOADS.iterdir():
+        if file.is_dir() or file.name.startswith("."):
+            continue
+
+        file_ext = file.suffix.lower()
+        
+        for folder, extensions in FOLDERS.items():
+            if file_ext in extensions:
+                target_dir = DOWNLOADS / folder
+                target_dir.mkdir(exist_ok=True)
+                
+                try:
+                    shutil.move(str(file), str(target_dir / file.name))
+                    print(f"  Moved: {file.name} -> {folder}/")
+                    moved_count += 1
+                except shutil.Error:
+                    print(f"  ⚠️ Skipped (duplicate): {file.name}")
+                break
+
+    if moved_count == 0:
+        print("✨ Downloads folder is already clean.")
+    else:
+        print(f"✅ Moved {moved_count} files.")
+
+if __name__ == "__main__":
+    clean()

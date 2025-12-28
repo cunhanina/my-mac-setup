@@ -1,0 +1,33 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+MSG="$1"
+
+# Default message if you are too lazy to type one
+if [ -z "$MSG" ]; then
+    MSG="Update: $(date '+%Y-%m-%d %H:%M')"
+fi
+
+# Check if we are in a git repo
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    err "Not a git repository."
+    exit 1
+fi
+
+header "💾 Saving Progress..."
+
+# 1. Add changes
+echo "  👉 Adding files..."
+git add .
+
+# 2. Commit
+echo "  👉 Committing: '$MSG'..."
+git commit -m "$MSG" -q
+
+# 3. Push
+echo "  👉 Pushing to GitHub..."
+if git push -q; then
+    ok "Saved & Pushed successfully!"
+else
+    warn "Committed, but Push failed (maybe no internet or no upstream branch)."
+fi
