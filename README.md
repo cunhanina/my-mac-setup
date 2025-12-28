@@ -9,7 +9,7 @@
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
-[The Stack](#-the-stack) • [Features](#-features) • [Installation](#-quick-start)
+[The Stack](#-the-stack) • [Features](#-features) • [Installation](#-installation)
 
 </div>
 
@@ -58,7 +58,7 @@ Custom scripts designed for "Lazy Productivity."
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation
 
 ### Phase 1: The Foundation
 Perform these steps manually on a fresh Mac to prepare the environment.
