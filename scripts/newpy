@@ -7,10 +7,11 @@ if [ -z "$1" ]; then
 fi
 
 NAME=$1
+# We keep new Python projects in the 'python' subfolder for organization
 BASE_DIR="$HOME/Desktop/coding/python"
 TARGET_DIR="$BASE_DIR/$NAME"
 
-header "🚀 Creating Project: $NAME"
+header "🚀 Creating Private Project: $NAME"
 
 # Ensure base folder
 mkdir -p "$BASE_DIR"
@@ -31,22 +32,30 @@ uv add --dev ruff pytest black --quiet
 mkdir -p src tests
 if [ -f "hello.py" ]; then mv hello.py src/main.py; else echo "print('Hello')" > src/main.py; fi
 
-# --- NEW: Create the Project To-Do ---
+# To-Do Setup
 echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
 
-# Git setup
+# Git Setup
 git init -q
 curl -s https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore > .gitignore
-
-# --- NEW: Ignore the To-Do file ---
 echo "\n# Local Notes\ntodo.md" >> .gitignore
 
 git add .
-git commit -m "Initial commit" -q
+git commit -m "Initial setup" -q
 
-ok "Created at: $TARGET_DIR"
+ok "Local project created."
 
+# --- GITHUB AUTOMATION ---
+if command -v gh &>/dev/null; then
+    echo "  🔒 Creating PRIVATE repository on GitHub..."
+    # Set to --private by default
+    gh repo create "$NAME" --private --source=. --remote=origin --push
+    ok "Live at https://github.com/cunhanina/$NAME (Private)"
+else
+    warn "GitHub CLI not found. Project is local only."
+fi
+
+# Open VS Code
 if command -v code &>/dev/null; then
     code .
-    ok "Opened in VS Code"
 fi
