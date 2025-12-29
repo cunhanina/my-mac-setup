@@ -2,6 +2,69 @@
 source ~/bin/_styles.sh
 
 MSG="$1"
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# 1. Default Message
+if [ -z "$MSG" ]; then
+    MSG="Update: $(date '+%Y-%m-%d %H:%M')"
+fi
+
+# 2. Check Git Context
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+    err "Not a git repository."
+    exit 1
+fi
+
+header "💾 Saving Progress ($BRANCH)..."
+
+# 3. Add & Commit
+echo "  👉 Adding files..."
+git add .
+echo "  👉 Committing..."
+git commit -m "$MSG" -q
+
+# 4. Smart Push Logic
+echo "  👉 Checking remote status..."
+git fetch -q # Update our knowledge of the cloud
+
+# Check if we are behind (Remote has commits we don't)
+BEHIND_COUNT=$(git rev-list HEAD..origin/$BRANCH --count)
+
+if [ "$BEHIND_COUNT" -gt 0 ]; then
+    warn "⚠️  Remote has changes you don't have!"
+    echo "${BOLD}Incoming changes:${RESET}"
+    git log HEAD..origin/$BRANCH --oneline --color | sed 's/^/  /'
+    
+    echo ""
+    echo -n "  🔄 Sync (pull) changes and push? [y/N] "
+    read RESPONSE
+    
+    if [[ "$RESPONSE" =~ ^[Yy]$ ]]; then
+        echo "  ⬇️  Pulling changes..."
+        if git pull --rebase -q; then
+            echo "  ⬆️  Pushing..."
+            git push -q
+            ok "Synced & Saved successfully!"
+        else
+            err "Pull failed (Conflict). Please fix manually."
+            exit 1
+        fi
+    else
+        warn "Push cancelled. Use 'git pull' manually when ready."
+        exit 0
+    fi
+else
+    # Standard Push
+    echo "  ⬆️  Pushing..."
+    if git push -q; then
+        ok "Saved & Pushed successfully!"
+    else
+        warn "Push failed (Check internet or permissions)."
+    fi
+fiin/zsh
+source ~/bin/_styles.sh
+
+MSG="$1"
 
 # Default message if you are too lazy to type one
 if [ -z "$MSG" ]; then
