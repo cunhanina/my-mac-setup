@@ -1,24 +1,31 @@
 #!/bin/zsh
+source ./scripts/_styles.sh
 
-echo "🚀 STARTING MAC SETUP..."
+header "🔗 LINKING MAC SETUP..."
 
-# 1. Setup Bin
-mkdir -p ~/bin
-cp ./scripts/* ~/bin/
-chmod +x ~/bin/*
-echo "✅ Scripts installed to ~/bin"
+# 1. Get the absolute path of the repo
+REPO_DIR=$(pwd)
 
-# 2. Setup Zsh Config
+# 2. Link Scripts (Force create links)
+# We loop through them to ensure they link correctly
+for script in "$REPO_DIR/scripts/"*; do
+    name=$(basename "$script")
+    ln -sf "$script" "$HOME/bin/$name"
+done
+
+ok "Scripts linked: Repo -> ~/bin"
+
+# 3. Setup Zsh Config
 if ! grep -q "pj()" ~/.zshrc; then
     echo 'export PATH="$HOME/bin:$HOME/.local/bin:$PATH"' >> ~/.zshrc
     echo 'pj() { cd "$($HOME/bin/pj $@)" }' >> ~/.zshrc
-    echo "✅ Config added to .zshrc"
+    ok "Config added to .zshrc"
 fi
 
-# 3. Install dependencies
+# 4. Install dependencies
 if ! command -v uv &>/dev/null; then
-    echo "📦 Installing uv..."
+    warn "Installing uv..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
 
-echo "🎉 SETUP COMPLETE! Restart your terminal."
+ok "SETUP COMPLETE! Your edits are now live."
