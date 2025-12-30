@@ -1,5 +1,17 @@
 #!/bin/zsh
+# Load your existing styles
 source ~/bin/_styles.sh
+
+# --- FALLBACKS ---
+# If your _styles.sh doesn't have these, we define simple versions here
+# to prevent "command not found" errors.
+if ! command -v step &> /dev/null; then
+  step() { echo "  ➜ $1"; }
+fi
+if ! command -v info &> /dev/null; then
+  info() { echo "  ℹ️  $1"; }
+fi
+# -----------------
 
 if [ -z "$1" ]; then
   err "Usage: newpy <project_name>"
@@ -7,55 +19,98 @@ if [ -z "$1" ]; then
 fi
 
 NAME=$1
-# We keep new Python projects in the 'python' subfolder for organization
+# Convert hyphens to underscores for the python package name
+PKG_NAME=${NAME//-/_}
+
 BASE_DIR="$HOME/Desktop/coding/python"
 TARGET_DIR="$BASE_DIR/$NAME"
 
-header "🚀 Creating Private Project: $NAME"
+header "🚀 Creating Professional Project: $NAME"
 
-# Ensure base folder
+# 1. Validation
 mkdir -p "$BASE_DIR"
-
 if [ -d "$TARGET_DIR" ]; then
-  err "Project '$NAME' already exists."
+  err "Project '$NAME' already exists in $BASE_DIR."
   exit 1
 fi
 
-mkdir "$TARGET_DIR"
+# 2. Initialize Project
+mkdir -p "$TARGET_DIR"
 cd "$TARGET_DIR"
 
-# Initialize uv
-uv init --app --name "$NAME" --quiet
-uv add --dev ruff pytest black --quiet
+step "Initializing uv environment..."
+# --lib creates the standard structure. We suppress output to keep it clean.
+uv init --name "$NAME" --lib --quiet
+uv add --dev ruff pytest --quiet
 
-# Structure
-mkdir -p src tests
-if [ -f "hello.py" ]; then mv hello.py src/main.py; else echo "print('Hello')" > src/main.py; fi
+# 3. Construct 'Src Layout'
+step "Structuring source code..."
 
-# To-Do Setup
+# Fix: Remove existing src folder entirely to avoid Zsh glob errors
+rm -rf src
+mkdir -p "src/$PKG_NAME" "tests"
+
+# A. __init__.py
+touch "src/$PKG_NAME/__init__.py"
+
+# B. main.py
+cat <<EOF > "src/$PKG_NAME/main.py"
+def main():
+    """Entry point for the application script"""
+    print(f"🚀 $NAME is running from src/$PKG_NAME!")
+
+if __name__ == "__main__":
+    main()
+EOF
+
+# C. __main__.py
+cat <<EOF > "src/$PKG_NAME/__main__.py"
+from $PKG_NAME.main import main
+
+if __name__ == "__main__":
+    main()
+EOF
+
+# D. Basic Test
+cat <<EOF > "tests/test_core.py"
+from $PKG_NAME.main import main
+
+def test_sanity():
+    assert 1 + 1 == 2
+EOF
+
+# 4. Extras Setup
 echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
 
-# Git Setup
+# 5. Git Setup
+step "Initializing Git..."
 git init -q
 curl -s https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore > .gitignore
 echo "\n# Local Notes\ntodo.md" >> .gitignore
+echo "\n# VSCode\n.vscode/" >> .gitignore
 
 git add .
-git commit -m "Initial setup" -q
+git commit -m "Initial setup with src layout" -q
+ok "Local project structure created."
 
-ok "Local project created."
-
-# --- GITHUB AUTOMATION ---
+# 6. GitHub Automation
 if command -v gh &>/dev/null; then
     echo "  🔒 Creating PRIVATE repository on GitHub..."
-    # Set to --private by default
-    gh repo create "$NAME" --private --source=. --remote=origin --push
+    gh repo create "$NAME" --private --source=. --remote=origin --push > /dev/null
     ok "Live at https://github.com/cunhanina/$NAME (Private)"
 else
-    warn "GitHub CLI not found. Project is local only."
+    # Fallback if warn doesn't exist
+    if command -v warn &>/dev/null; then
+        warn "GitHub CLI not found. Project is local only."
+    else
+        echo "⚠️  GitHub CLI not found. Project is local only."
+    fi
 fi
 
-# Open VS Code
+# 7. Final Handoff
 if command -v code &>/dev/null; then
     code .
 fi
+
+info "📦 Package: src/$PKG_NAME"
+info "👉 Run it:  uv run -m $PKG_NAME"

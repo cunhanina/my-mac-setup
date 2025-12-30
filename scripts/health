@@ -1,40 +1,106 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+# Load styles with safety check
+[ -f ~/bin/_styles.sh ] && source ~/bin/_styles.sh
 
-header "SYSTEM HEALTH"
-# Uptime & Load
-uptime_clean=$(uptime | sed 's/.*up \([^,]*\), .*/\1/')
-row "Uptime" "$uptime_clean"
-row "Disk Usage" "$(df -h / | awk 'NR==2 {print $5 " used"}')"
-# Memory
-mem_pressure=$(memory_pressure | grep "System-wide" | awk '{print $5}')
-row "Mem Pressure" "$mem_pressure"
-# Battery
+# --- HELPERS ---
+check_health() {
+    local val=${1%%%}
+    local limit=$2
+    if [ "$val" -gt "$limit" ]; then
+        echo "${RED}${val}%${RESET}"
+    else
+        echo "${GREEN}${val}%${RESET}"
+    fi
+}
+
+header "SYSTEM VITALS"
+
+# 1. Architecture
+arch=$(uname -m)
+[ "$arch" = "arm64" ] && arch_label="Apple Silicon (MPS Ready)" || arch_label="Intel x86"
+row "Architecture" "$arch_label"
+
+# 2. CPU Load (1 min average) - NEW
+# Reads "{ 1.25 0.80 0.50 }" and grabs the first number
+load_avg=$(sysctl -n vm.loadavg | awk '{print $2}')
+row "CPU Load (1m)" "$load_avg"
+
+# 3. Uptime
+boot_time=$(sysctl -n kern.boottime | awk '{print $4}' | tr -d ',')
+current_time=$(date +%s)
+up_seconds=$((current_time - boot_time))
+up_days=$((up_seconds / 86400))
+up_hours=$(( (up_seconds % 86400) / 3600 ))
+row "Uptime" "${up_days}d ${up_hours}h"
+
+# 4. Disk Usage (Added Free Space in GB) - IMPROVED
+disk_pct=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
+disk_free=$(df -h / | awk 'NR==2 {print $4}')
+row "Disk Usage" "$(check_health "$disk_pct" 90) (${disk_free} free)"
+
+# 5. Memory
+mem_total=$(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024))
+mem_pressure=$(memory_pressure | grep "System-wide" | awk '{print $5}' | tr -d '%')
+row "RAM Total" "${mem_total} GB"
+row "Mem Pressure" "$(check_health "$mem_pressure" 60)"
+
+# 6. Battery
 if pmset -g batt | grep -q "InternalBattery"; then
-    batt_pct=$(pmset -g batt | grep -o "[0-9]*%")
-    row "Battery" "$batt_pct"
+    batt_pct=$(pmset -g batt | grep -o "[0-9]*%" | head -1)
+    batt_status=$(pmset -g batt | grep "discharging" > /dev/null && echo "🔋" || echo "⚡")
+    row "Battery" "$batt_status $batt_pct"
 fi
 
-header "NETWORK"
-# Interface
+header "CONNECTIVITY"
+
+# 1. Interface & SSID
 iface=$(route get default 2>/dev/null | awk '/interface/ {print $2}')
-row "Interface" "${iface:-N/A}"
-# Local IP
-local_ip=$(ipconfig getifaddr "$iface" 2>/dev/null)
-row "Local IP" "${local_ip:-Offline}"
-# Ping check
-if ping -c 1 -W 500 8.8.8.8 &>/dev/null; then
-    ok "Internet Connected"
-else
-    err "No Internet"
+row "Interface" "${iface:-Disconnected}"
+
+if [ "$iface" = "en0" ] || [ "$iface" = "en1" ]; then
+    ssid=$(networksetup -getairportnetwork "$iface" 2>/dev/null | sed 's/Current Wi-Fi Network: //')
+    if [[ "$ssid" != *"You are not associated"* ]] && [ -n "$ssid" ]; then
+         row "WiFi Network" "$ssid"
+    fi
 fi
 
-header "ENVIRONMENT"
-row "User" "$(whoami)"
-row "Shell" "$SHELL"
-# Check Python
-if command -v uv &>/dev/null; then
-    row "uv version" "$(uv --version | awk '{print $2}')"
+# 2. Local IP
+local_ip=$(ipconfig getifaddr "$iface" 2>/dev/null)
+row "Local IP" "${local_ip:-N/A}"
+
+# 3. Public IP (Fast Timeout) - NEW
+# Checks what the outside world sees (useful for VPN verification)
+public_ip=$(curl -s --max-time 1 https://ifconfig.me)
+row "Public IP" "${public_ip:-Unreachable}"
+
+# 4. Ping Check
+if ping -c 1 -W 500 8.8.8.8 &>/dev/null; then
+    ok "Internet Online (Google DNS)"
 else
-    warn "uv not installed"
+    err "Internet Offline"
+fi
+
+header "DEV STACK"
+
+# 1. User & Git Identity - NEW
+git_user=$(git config --global user.name)
+if [ -z "$git_user" ]; then
+    row "User" "$(whoami) ${RED}(Git Unconfigured)${RESET}"
+else
+    row "User" "$(whoami)"
+fi
+
+# 2. uv
+if command -v uv &>/dev/null; then
+    uv_ver=$(uv --version | awk '{print $2}')
+    row "uv Package Mgr" "${GREEN}v$uv_ver${RESET}"
+else
+    row "uv Package Mgr" "${RED}Not Installed${RESET}"
+fi
+
+# 3. Docker
+if pgrep -f Docker >/dev/null; then
+    row "Docker Engine" "${GREEN}Running${RESET}"
+else
+    row "Docker Engine" "${YELLOW}Stopped${RESET}"
 fi

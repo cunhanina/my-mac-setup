@@ -1,18 +1,54 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+# Try to load styles, but don't crash if missing
+[ -f ~/bin/_styles.sh ] && source ~/bin/_styles.sh
 
-header "🧹 Python Deep Clean"
+# --- SAFETY FALLBACKS ---
+# If styles are missing, we define simple versions so the script works anywhere
+if ! command -v header &> /dev/null; then
+  header() { echo "\n🧹 $1"; }
+  ok() { echo "  ✔ $1"; }
+  info() { echo "  ℹ️  $1"; }
+fi
+# ------------------------
 
-# Find and delete __pycache__ directories
-find . -type d -name "__pycache__" -exec rm -rf {} +
-echo "  ✔ Deleted __pycache__ folders"
+# Default to current directory if no argument is given
+TARGET_DIR="${1:-.}"
 
-# Find and delete .pyc files (compiled python)
-find . -type f -name "*.pyc" -delete
-echo "  ✔ Deleted .pyc files"
+header "Deep Cleaning Python Project: $(pwd)"
 
-# Find and delete Mac junk
-find . -type f -name ".DS_Store" -delete
-echo "  ✔ Deleted .DS_Store files"
+# Function to find, count, and destroy
+destroy() {
+    local pattern="$1"
+    local description="$2"
+    
+    # 1. Count matches (silencing errors)
+    local count=$(find "$TARGET_DIR" -name "$pattern" 2>/dev/null | wc -l)
+    
+    # 2. If found, delete them
+    if [ "$count" -gt 0 ]; then
+        find "$TARGET_DIR" -name "$pattern" -exec rm -rf {} + 2>/dev/null
+        # Trim whitespace from count for cleaner output
+        ok "Removed $count $description ($pattern)"
+    fi
+}
 
-ok "Cleaned current directory recursively."
+# 1. Standard Python Junk
+destroy "__pycache__" "bytecode folders"
+destroy "*.pyc"       "compiled files"
+
+# 2. Modern Tooling Caches (Ruff, Pytest, Mypy)
+destroy ".pytest_cache" "test caches"
+destroy ".ruff_cache"   "linter caches"
+destroy ".mypy_cache"   "type check caches"
+destroy ".coverage"     "coverage reports"
+
+# 3. Build Artifacts (from packaging)
+destroy "dist"        "distribution folders"
+destroy "build"       "build folders"
+destroy "*.egg-info"  "egg metadata"
+
+# 4. OS Junk
+destroy ".DS_Store"   "macOS metadata"
+
+echo "" 
+info "Sparkling clean. ✨"
