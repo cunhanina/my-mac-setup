@@ -5,11 +5,12 @@
 ![macOS](https://img.shields.io/badge/mac%20os-000000?style=for-the-badge&logo=apple&logoColor=white)
 ![Zsh](https://img.shields.io/badge/zsh-%23991199.svg?style=for-the-badge&logo=zsh&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![VSCode](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
-[The Stack](#-the-stack) • [Features](#-features) • [Installation](#-installation)
+[The Stack](#-the-stack) • [Features](#-features) • [VS Code](#-vs-code-config) • [Installation](#-installation)
 
 </div>
 
@@ -29,6 +30,7 @@ The core technologies driving this environment.
 | :--- | :--- | :--- |
 | **Shell** | `Oh My Zsh` | The industry standard for shell management. |
 | **Theme** | `Powerlevel10k` | Instant startup, git status, and icons. |
+| **Editor** | `VS Code` | Optimized with custom `settings.json`. |
 | **Font** | `JetBrains Mono` | The best ligature support for coding. |
 | **Colors** | `Catppuccin` | Soothing, high-contrast purple/pastel palette. |
 | **Python** | `uv` | Replaces pip/poetry. 10x-100x faster package management. |
@@ -55,6 +57,26 @@ Custom scripts designed for "Lazy Productivity."
 | `clean` | **System Flush.** Clears DNS cache and frees up RAM. |
 | `pyclean` | **Janitor.** Recursively nukes `__pycache__` and `.DS_Store`. |
 | `organize` | **File Sorter.** Cleans up the Downloads folder automatically. |
+
+---
+
+## 🆚 VS Code Config
+
+My production-ready `settings.json` optimized for Python, Data Science, and Automation.
+
+**Path:** `vscode/settings.json`
+
+* **Python:** Strict linting with `Ruff` and auto-formatting on save.
+* **Terminal:** Integrated Zsh with custom fonts and transparency.
+* **UI:** Minimalist layout (Hidden activity bars, breadcrumbs) for focus.
+
+### 📥 Install Settings
+To apply these settings to your machine:
+
+```bash
+mkdir -p ~/Library/Application\ Support/Code/User
+cp vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
+```
 
 ---
 
