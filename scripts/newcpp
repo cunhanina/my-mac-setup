@@ -1,0 +1,115 @@
+#!/bin/zsh
+# Load your existing styles
+source ~/bin/_styles.sh
+
+# --- FALLBACKS ---
+# If your _styles.sh doesn't have these, we define simple versions here
+# to prevent "command not found" errors.
+if ! command -v step &> /dev/null; then
+  step() { echo "  ➜ $1"; }
+fi
+if ! command -v info &> /dev/null; then
+  info() { echo "  ℹ️  $1"; }
+fi
+# -----------------
+
+if [ -z "$1" ]; then
+  err "Usage: newcpp <project_name>"
+  exit 1
+fi
+
+NAME=$1
+
+# Changed to a cpp directory to keep languages separated
+BASE_DIR="$HOME/Desktop/coding/cpp"
+TARGET_DIR="$BASE_DIR/$NAME"
+
+header "🚀 Creating Professional C++ Project: $NAME"
+
+# 1. Validation
+mkdir -p "$BASE_DIR"
+if [ -d "$TARGET_DIR" ]; then
+  err "Project '$NAME' already exists in $BASE_DIR."
+  exit 1
+fi
+
+# 2. Initialize Project
+mkdir -p "$TARGET_DIR"
+cd "$TARGET_DIR"
+
+step "Structuring source code with CMake..."
+
+# 3. Construct Standard C++ Layout
+mkdir -p src include build
+
+# A. main.cpp
+cat <<EOF > "src/main.cpp"
+#include <iostream>
+
+int main() {
+    std::cout << "🚀 $NAME is running from src/main.cpp!" << std::endl;
+    return 0;
+}
+EOF
+
+# B. CMakeLists.txt (The build configuration)
+cat <<EOF > "CMakeLists.txt"
+cmake_minimum_required(VERSION 3.12)
+project($NAME)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+
+include_directories(include)
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
+
+add_executable(\${PROJECT_NAME} \${SOURCES})
+EOF
+
+# 4. Extras Setup
+echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
+
+# 5. Git Setup
+step "Initializing Git..."
+git init -q
+# Fetching the official C++ gitignore
+curl -s https://raw.githubusercontent.com/github/gitignore/main/C++.gitignore > .gitignore
+echo "\n# Local Notes\ntodo.md" >> .gitignore
+echo "\n# VSCode\n.vscode/" >> .gitignore
+
+git add .
+git commit -m "Initial setup with CMake layout" -q
+
+if command -v ok &> /dev/null; then
+    ok "Local project structure created."
+else
+    echo "  ✅ Local project structure created."
+fi
+
+# 6. GitHub Automation
+if command -v gh &>/dev/null; then
+    echo "  🔒 Creating PRIVATE repository on GitHub..."
+    gh repo create "$NAME" --private --source=. --remote=origin --push > /dev/null
+    
+    if command -v ok &> /dev/null; then
+        ok "Live at https://github.com/cunhanina/$NAME (Private)"
+    else
+        echo "  ✅ Live at https://github.com/cunhanina/$NAME (Private)"
+    fi
+else
+    if command -v warn &>/dev/null; then
+        warn "GitHub CLI not found. Project is local only."
+    else
+        echo "⚠️  GitHub CLI not found. Project is local only."
+    fi
+fi
+
+# 7. Final Handoff
+if command -v code &>/dev/null; then
+    code .
+fi
+
+info "📦 C++ Project created using CMake"
+info "👉 To build and run:"
+info "   cd build && cmake .. && make && ./${NAME}"
