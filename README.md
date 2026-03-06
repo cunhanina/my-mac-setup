@@ -6,7 +6,6 @@
 ![Zsh](https://img.shields.io/badge/zsh-%23991199.svg?style=for-the-badge&logo=zsh&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![VSCode](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
@@ -43,10 +42,10 @@ Custom scripts designed for "Lazy Productivity."
 ### 🛠 Workflow Automation
 | Command | Function |
 |:---|:---|
-| `newpy` | **Project Generator.** Creates repo, installs venv, and pushes to GitHub instantly. |
+| `newpy` & `newcpp` | **Project Generator.** Creates repo, installs venv, and pushes to GitHub instantly. |
 | `pj` | **Teleporter.** Instantly jump between projects. |
 | `save` | **Lazy Git.** `git add` + `commit` + `push` in one go. |
-| `note` | **Context-Aware Tasks.** Detects if you are in a project or global scope. |
+| `note` | **Context-Aware Tasks and Notes.** Detects if you are in a project or global scope to setup the txt file. |
 
 ### ⚙️ System & Maintenance
 | Command | Function |
