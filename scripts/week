@@ -1,0 +1,122 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+# ---------------------------------------------------------------------------
+# week — weekly activity review
+#
+# Usage:
+#   week          this week's summary
+#   week last     last week's summary
+# ---------------------------------------------------------------------------
+
+# ── Date range setup ────────────────────────────────────────────────────────
+if [[ "$1" == "last" ]]; then
+    LABEL="LAST WEEK"
+    SINCE=$(date -v-monday -v-7d '+%Y-%m-%d')
+    UNTIL=$(date -v-sunday -v-7d '+%Y-%m-%d 23:59:59')
+else
+    LABEL="THIS WEEK"
+    DOW=$(date '+%u')           # 1=Mon … 7=Sun
+    DAYS_BACK=$((DOW - 1))
+    SINCE=$(date -v-${DAYS_BACK}d '+%Y-%m-%d')
+    UNTIL=$(date '+%Y-%m-%d 23:59:59')
+fi
+
+# Extract just the YYYY-MM-DD for icalbuddy
+UNTIL_DATE=$(echo $UNTIL | cut -d' ' -f1)
+
+header "WEEKLY REVIEW  •  $LABEL  ($SINCE → $UNTIL_DATE)"
+
+# ── 1. GIT COMMITS across all projects ──────────────────────────────────────
+echo ""
+echo "  ${BOLD}Git activity${RESET}"
+
+TOTAL_COMMITS=0
+REPOS_ACTIVE=0
+
+find "$HOME/Desktop/coding" -maxdepth 4 -name ".git" -type d -print0 2>/dev/null | while IFS= read -r -d '' REPO; do
+    REPO_DIR=$(dirname "$REPO")
+    PROJECT=$(basename "$REPO_DIR")
+
+    # Added --no-pager to prevent the terminal from getting stuck in 'less'
+    COUNT=$(git --no-pager -C "$REPO_DIR" log \
+        --after="$SINCE" --before="$UNTIL" \
+        --author="$(git config user.email)" \
+        --oneline 2>/dev/null | wc -l | tr -d ' ')
+
+    if [ "$COUNT" -gt 0 ]; then
+        REPOS_ACTIVE=$((REPOS_ACTIVE + 1))
+        TOTAL_COMMITS=$((TOTAL_COMMITS + COUNT))
+        row "  $PROJECT" "${COUNT} commit(s)"
+
+        # Added --no-pager here as well
+        git --no-pager -C "$REPO_DIR" log \
+            --after="$SINCE" --before="$UNTIL" \
+            --author="$(git config user.email)" \
+            --format="    ${CYAN}·${RESET} %s" 2>/dev/null
+    fi
+done
+
+if [ "$TOTAL_COMMITS" -eq 0 ]; then
+    warn "  No commits found this period."
+else
+    echo ""
+    row "  Total commits" "$TOTAL_COMMITS across $REPOS_ACTIVE repo(s)"
+fi
+
+# ── 2. COMPLETED TASKS from all todo.md files ───────────────────────────────
+echo ""
+echo "  ${BOLD}Completed tasks${RESET}"
+
+TOTAL_DONE=0
+
+GLOBAL_NOTES="$HOME/Desktop/notes.md"
+if [ -f "$GLOBAL_NOTES" ]; then
+    DONE=$(grep -E '^[ \t]*[-*] \[x\]' "$GLOBAL_NOTES" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$DONE" -gt 0 ]; then
+        row "  Global notes" "${DONE} task(s) done"
+        TOTAL_DONE=$((TOTAL_DONE + DONE))
+    fi
+fi
+
+find "$HOME/Desktop/coding" -maxdepth 3 -name "todo.md" -print0 2>/dev/null | while IFS= read -r -d '' TODO; do
+    PROJECT=$(basename "$(dirname "$TODO")")
+    DONE=$(grep -E '^[ \t]*[-*] \[x\]' "$TODO" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$DONE" -gt 0 ]; then
+        row "  $PROJECT" "${DONE} task(s) done"
+        TOTAL_DONE=$((TOTAL_DONE + DONE))
+    fi
+done
+
+if [ "$TOTAL_DONE" -eq 0 ]; then
+    warn "  No completed tasks found."
+else
+    echo ""
+    row "  Total done" "$TOTAL_DONE task(s)"
+fi
+
+# ── 3. JOURNAL ENTRIES this week ────────────────────────────────────────────
+JOURNAL_FILE="$HOME/Desktop/journal.md"
+if [ -f "$JOURNAL_FILE" ]; then
+    echo ""
+    echo "  ${BOLD}Journal entries${RESET}"
+    JOURNAL_DAYS=$(grep "^## 20" "$JOURNAL_FILE" | awk -F'## ' '{print $2}' | while read -r d; do
+        [[ "$d" > "$SINCE" || "$d" == "$SINCE" ]] && [[ "$d" < "$UNTIL_DATE" || "$d" == "$UNTIL_DATE" ]] && echo "$d"
+    done | wc -l | tr -d ' ')
+    row "  Days journaled" "$JOURNAL_DAYS this week"
+fi
+
+# ── 4. CALENDAR EVENTS this week ────────────────────────────────────────────
+if command -v icalbuddy &>/dev/null; then
+    echo ""
+    echo "  ${BOLD}Calendar${RESET}"
+    EVENTS=$(icalbuddy -f -ea -nc -npn -b "    • " -eep "notes,url,location" eventsFrom:"$SINCE" to:"$UNTIL_DATE" 2>/dev/null)
+    if [ -n "$EVENTS" ]; then
+        echo "$EVENTS"
+    else
+        warn "  No calendar events this period."
+    fi
+fi
+
+echo ""
+ok "That's your week."            

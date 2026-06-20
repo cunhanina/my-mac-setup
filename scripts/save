@@ -1,23 +1,20 @@
 #!/bin/zsh
 source ~/bin/_styles.sh
 
-MSG="$1"
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# 1. Default Message
-if [ -z "$MSG" ]; then
-    MSG="Update: $(date '+%Y-%m-%d %H:%M')"
-fi
-
-# 2. Check Git Context
+# FIX: check git context FIRST, before reading branch or doing anything else.
+# Previously BRANCH=$(git rev-parse ...) ran before the repo check, printing
+# a stray error and silently setting BRANCH="" whenever run outside a repo.
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     err "Not a git repository."
     exit 1
 fi
 
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+MSG="${1:-Update: $(date '+%Y-%m-%d %H:%M')}"
+
 header "💾 Saving Progress ($BRANCH)..."
 
-# 3. Add & Commit
+# 1. Add & Commit
 # We check status first to avoid "nothing to commit" errors
 if [ -n "$(git status --porcelain)" ]; then
     echo "  👉 Adding files..."
@@ -25,19 +22,18 @@ if [ -n "$(git status --porcelain)" ]; then
     echo "  👉 Committing..."
     git commit -m "$MSG" -q
 else
-    echo "  👉 No new changes to commit. checking for push..."
+    echo "  👉 No new changes to commit. Checking for push..."
 fi
 
-# 4. Smart Push Logic
+# 2. Smart Push Logic
 echo "  👉 Checking remote status..."
-git fetch -q # Update our knowledge of the cloud
+git fetch -q
 
-# Check if we are behind (Remote has commits we don't)
-# We use || echo 0 to handle cases where there is no upstream yet
+# Check if we are behind (remote has commits we don't)
 BEHIND_COUNT=$(git rev-list HEAD..origin/$BRANCH --count 2>/dev/null || echo 0)
 
 if [ "$BEHIND_COUNT" -gt 0 ]; then
-    warn "⚠️  Remote has changes you don't have!"
+    warn "Remote has changes you don't have!"
     echo "${BOLD}Incoming changes:${RESET}"
     git log HEAD..origin/$BRANCH --oneline --color | sed 's/^/  /'
     
@@ -52,7 +48,7 @@ if [ "$BEHIND_COUNT" -gt 0 ]; then
             git push -q
             ok "Synced & Saved successfully!"
         else
-            err "Pull failed (Conflict). Please fix manually."
+            err "Pull failed (conflict). Please fix manually."
             exit 1
         fi
     else
@@ -60,11 +56,12 @@ if [ "$BEHIND_COUNT" -gt 0 ]; then
         exit 0
     fi
 else
-    # Standard Push
     echo "  ⬆️  Pushing..."
     if git push -q; then
         ok "Saved & Pushed successfully!"
     else
-        warn "Push failed (Check internet or permissions)."
+        warn "Push failed (check internet or permissions)."
     fi
 fi
+
+

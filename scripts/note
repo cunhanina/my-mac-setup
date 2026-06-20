@@ -7,7 +7,7 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
     CURRENT_FILE="$PROJECT_ROOT/todo.md"
     CONTEXT="📂 PROJECT: $(basename "$PROJECT_ROOT")"
     if [ ! -f "$CURRENT_FILE" ]; then
-        echo "# 📝 To-Do: $(basename "$PROJECT_ROOT")\n" > "$CURRENT_FILE"
+        printf "# 📝 To-Do: %s\n\n" "$(basename "$PROJECT_ROOT")" > "$CURRENT_FILE"
     fi
 else
     CURRENT_FILE="$HOME/Desktop/notes.md"
@@ -41,7 +41,6 @@ if [ -z "$1" ]; then
     
     # 2. Show the "Beautiful View" using Glow
     if command -v glow &>/dev/null; then
-        # -w 0 tells glow to use the full width of the terminal
         glow "$CURRENT_FILE" -w 0
     elif command -v bat &>/dev/null; then
         bat --style=plain --language=markdown "$CURRENT_FILE"
@@ -52,10 +51,11 @@ if [ -z "$1" ]; then
 fi
 
 # MODE: DONE
-if [[ "$CMD" == "done" || "$CMD" == "x" ]] || [[ "$1" == "done" || "$1" == "x" ]]; then
-    # Handle case where user types "note done 1" vs "note x 1"
-    if [[ "$1" == "done" || "$1" == "x" ]]; then shift; fi
-    
+# FIX: removed dead $CMD check — $CMD was never set, causing done/x to fall
+# through to ADD mode and append "done 1" as a new task instead of marking one complete.
+if [[ "$1" == "done" || "$1" == "x" ]]; then
+    shift
+
     TASK_INDEX=$1
     if [ -z "$TASK_INDEX" ]; then err "Usage: note done <number>"; exit 1; fi
     
@@ -94,3 +94,5 @@ fi
 TASK="$*"
 echo "- [ ] $TASK" >> "$CURRENT_FILE"
 ok "Task added."
+
+

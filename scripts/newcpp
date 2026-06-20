@@ -1,17 +1,12 @@
 #!/bin/zsh
-# Load your existing styles
 source ~/bin/_styles.sh
 
-# --- FALLBACKS ---
-# If your _styles.sh doesn't have these, we define simple versions here
-# to prevent "command not found" errors.
 if ! command -v step &> /dev/null; then
   step() { echo "  ➜ $1"; }
 fi
 if ! command -v info &> /dev/null; then
   info() { echo "  ℹ️  $1"; }
 fi
-# -----------------
 
 if [ -z "$1" ]; then
   err "Usage: newcpp <project_name>"
@@ -19,8 +14,6 @@ if [ -z "$1" ]; then
 fi
 
 NAME=$1
-
-# Changed to a cpp directory to keep languages separated
 BASE_DIR="$HOME/Desktop/coding/cpp"
 TARGET_DIR="$BASE_DIR/$NAME"
 
@@ -33,13 +26,12 @@ if [ -d "$TARGET_DIR" ]; then
   exit 1
 fi
 
-# 2. Initialize Project
+# 2. Initialize project
 mkdir -p "$TARGET_DIR"
 cd "$TARGET_DIR"
 
 step "Structuring source code with CMake..."
 
-# 3. Construct Standard C++ Layout
 mkdir -p src include build
 
 # A. main.cpp
@@ -52,7 +44,7 @@ int main() {
 }
 EOF
 
-# B. CMakeLists.txt (The build configuration)
+# B. CMakeLists.txt
 cat <<EOF > "CMakeLists.txt"
 cmake_minimum_required(VERSION 3.12)
 project($NAME)
@@ -67,49 +59,39 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 add_executable(\${PROJECT_NAME} \${SOURCES})
 EOF
 
-# 4. Extras Setup
-echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
+# 3. todo.md
+# FIX: replaced echo "...\n..." with printf — zsh echo without -e prints
+# literal backslash-n, not a newline.
+printf "# 📝 To-Do: %s\n\n- [ ] Initial setup complete\n- [ ] \n" "$NAME" > todo.md
 
-# 5. Git Setup
+# 4. Git setup
 step "Initializing Git..."
 git init -q
-# Fetching the official C++ gitignore
 curl -s https://raw.githubusercontent.com/github/gitignore/main/C++.gitignore > .gitignore
-echo "\n# Local Notes\ntodo.md" >> .gitignore
-echo "\n# VSCode\n.vscode/" >> .gitignore
+# FIX: same \n bug — use printf for reliable newlines in appended blocks
+printf "\n# Local Notes\ntodo.md\n" >> .gitignore
+printf "\n# VSCode\n.vscode/\n" >> .gitignore
 
 git add .
 git commit -m "Initial setup with CMake layout" -q
+ok "Local project structure created."
 
-if command -v ok &> /dev/null; then
-    ok "Local project structure created."
-else
-    echo "  ✅ Local project structure created."
-fi
-
-# 6. GitHub Automation
+# 5. GitHub
 if command -v gh &>/dev/null; then
     echo "  🔒 Creating PRIVATE repository on GitHub..."
     gh repo create "$NAME" --private --source=. --remote=origin --push > /dev/null
-    
-    if command -v ok &> /dev/null; then
-        ok "Live at https://github.com/cunhanina/$NAME (Private)"
-    else
-        echo "  ✅ Live at https://github.com/cunhanina/$NAME (Private)"
-    fi
+    ok "Live at https://github.com/cunhanina/$NAME (Private)"
 else
-    if command -v warn &>/dev/null; then
-        warn "GitHub CLI not found. Project is local only."
-    else
-        echo "⚠️  GitHub CLI not found. Project is local only."
-    fi
+    warn "GitHub CLI not found. Project is local only."
 fi
 
-# 7. Final Handoff
+# 6. Open VS Code
 if command -v code &>/dev/null; then
     code .
 fi
 
 info "📦 C++ Project created using CMake"
 info "👉 To build and run:"
-info "   cd build && cmake .. && make && ./${NAME}"
+info "   cd build && cmake .. && make && ./$NAME"
+
+

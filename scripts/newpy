@@ -1,17 +1,12 @@
 #!/bin/zsh
-# Load your existing styles
 source ~/bin/_styles.sh
 
-# --- FALLBACKS ---
-# If your _styles.sh doesn't have these, we define simple versions here
-# to prevent "command not found" errors.
 if ! command -v step &> /dev/null; then
   step() { echo "  ➜ $1"; }
 fi
 if ! command -v info &> /dev/null; then
   info() { echo "  ℹ️  $1"; }
 fi
-# -----------------
 
 if [ -z "$1" ]; then
   err "Usage: newpy <project_name>"
@@ -19,7 +14,7 @@ if [ -z "$1" ]; then
 fi
 
 NAME=$1
-# Convert hyphens to underscores for the python package name
+# Convert hyphens to underscores for the Python package name
 PKG_NAME=${NAME//-/_}
 
 BASE_DIR="$HOME/Desktop/coding/python"
@@ -34,19 +29,19 @@ if [ -d "$TARGET_DIR" ]; then
   exit 1
 fi
 
-# 2. Initialize Project
+# 2. Initialize project
+# FIX: use plain `uv init` (no --lib) so we control the full structure ourselves.
+# --lib auto-creates a src/ folder whose package name may not match $PKG_NAME
+# when the project name contains hyphens, leaving pyproject.toml out of sync.
 mkdir -p "$TARGET_DIR"
 cd "$TARGET_DIR"
 
 step "Initializing uv environment..."
-# --lib creates the standard structure. We suppress output to keep it clean.
-uv init --name "$NAME" --lib --quiet
+uv init --name "$NAME" --quiet
 uv add --dev ruff pytest --quiet
 
-# 3. Construct 'Src Layout'
+# 3. Build src layout from scratch
 step "Structuring source code..."
-
-# Fix: Remove existing src folder entirely to avoid Zsh glob errors
 rm -rf src
 mkdir -p "src/$PKG_NAME" "tests"
 
@@ -71,7 +66,7 @@ if __name__ == "__main__":
     main()
 EOF
 
-# D. Basic Test
+# D. Basic test
 cat <<EOF > "tests/test_core.py"
 from $PKG_NAME.main import main
 
@@ -79,38 +74,47 @@ def test_sanity():
     assert 1 + 1 == 2
 EOF
 
-# 4. Extras Setup
-echo "# 📝 To-Do: $NAME\n\n- [ ] Initial setup complete\n- [ ] " > todo.md
+# E. Patch pyproject.toml so the src layout is found by the build backend
+# FIX: uv init without --lib doesn't add find directives, so imports from src/
+# would fail at packaging time without this.
+cat >> pyproject.toml <<EOF
 
-# 5. Git Setup
+[tool.setuptools.packages.find]
+where = ["src"]
+EOF
+
+# 4. todo.md
+# FIX: replaced echo "...\n..." with printf — zsh echo without -e prints
+# literal backslash-n, not a newline.
+printf "# 📝 To-Do: %s\n\n- [ ] Initial setup complete\n- [ ] \n" "$NAME" > todo.md
+
+# 5. Git setup
 step "Initializing Git..."
 git init -q
 curl -s https://raw.githubusercontent.com/github/gitignore/main/Python.gitignore > .gitignore
-echo "\n# Local Notes\ntodo.md" >> .gitignore
-echo "\n# VSCode\n.vscode/" >> .gitignore
+# FIX: same \n bug — use printf for reliable newlines in appended blocks
+printf "\n# Local Notes\ntodo.md\n" >> .gitignore
+printf "\n# VSCode\n.vscode/\n" >> .gitignore
 
 git add .
 git commit -m "Initial setup with src layout" -q
 ok "Local project structure created."
 
-# 6. GitHub Automation
+# 6. GitHub
 if command -v gh &>/dev/null; then
     echo "  🔒 Creating PRIVATE repository on GitHub..."
     gh repo create "$NAME" --private --source=. --remote=origin --push > /dev/null
     ok "Live at https://github.com/cunhanina/$NAME (Private)"
 else
-    # Fallback if warn doesn't exist
-    if command -v warn &>/dev/null; then
-        warn "GitHub CLI not found. Project is local only."
-    else
-        echo "⚠️  GitHub CLI not found. Project is local only."
-    fi
+    warn "GitHub CLI not found. Project is local only."
 fi
 
-# 7. Final Handoff
+# 7. Open VS Code
 if command -v code &>/dev/null; then
     code .
 fi
 
 info "📦 Package: src/$PKG_NAME"
 info "👉 Run it:  uv run -m $PKG_NAME"
+
+

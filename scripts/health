@@ -1,8 +1,10 @@
 #!/bin/zsh
-# Load styles with safety check
 [ -f ~/bin/_styles.sh ] && source ~/bin/_styles.sh
 
-# --- HELPERS ---
+# ---------------------------------------------------------------------------
+# health — system vitals dashboard (expanded with deep battery section)
+# ---------------------------------------------------------------------------
+
 check_health() {
     local val=${1%%%}
     local limit=$2
@@ -13,19 +15,16 @@ check_health() {
     fi
 }
 
+# ── SYSTEM VITALS ────────────────────────────────────────────────────────────
 header "SYSTEM VITALS"
 
-# 1. Architecture
 arch=$(uname -m)
 [ "$arch" = "arm64" ] && arch_label="Apple Silicon (MPS Ready)" || arch_label="Intel x86"
 row "Architecture" "$arch_label"
 
-# 2. CPU Load (1 min average) - NEW
-# Reads "{ 1.25 0.80 0.50 }" and grabs the first number
 load_avg=$(sysctl -n vm.loadavg | awk '{print $2}')
 row "CPU Load (1m)" "$load_avg"
 
-# 3. Uptime
 boot_time=$(sysctl -n kern.boottime | awk '{print $4}' | tr -d ',')
 current_time=$(date +%s)
 up_seconds=$((current_time - boot_time))
@@ -33,74 +32,134 @@ up_days=$((up_seconds / 86400))
 up_hours=$(( (up_seconds % 86400) / 3600 ))
 row "Uptime" "${up_days}d ${up_hours}h"
 
-# 4. Disk Usage (Added Free Space in GB) - IMPROVED
 disk_pct=$(df -h / | awk 'NR==2 {print $5}' | tr -d '%')
 disk_free=$(df -h / | awk 'NR==2 {print $4}')
 row "Disk Usage" "$(check_health "$disk_pct" 90) (${disk_free} free)"
 
-# 5. Memory
 mem_total=$(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024))
 mem_pressure=$(memory_pressure | grep "System-wide" | awk '{print $5}' | tr -d '%')
-row "RAM Total" "${mem_total} GB"
-row "Mem Pressure" "$(check_health "$mem_pressure" 60)"
+row "RAM" "${mem_total} GB total  •  pressure $(check_health "$mem_pressure" 60)"
 
-# 6. Battery
+# ── BATTERY (expanded) ───────────────────────────────────────────────────────
+header "BATTERY"
+
 if pmset -g batt | grep -q "InternalBattery"; then
+
+    # Basic charge level + status (existing)
     batt_pct=$(pmset -g batt | grep -o "[0-9]*%" | head -1)
-    batt_status=$(pmset -g batt | grep "discharging" > /dev/null && echo "🔋" || echo "⚡")
-    row "Battery" "$batt_status $batt_pct"
+    if pmset -g batt | grep -q "discharging"; then
+        batt_status="🔋 Discharging"
+    elif pmset -g batt | grep -q "charging"; then
+        batt_status="⚡ Charging"
+    else
+        batt_status="⚡ Plugged in (full)"
+    fi
+    row "Charge" "$batt_pct  •  $batt_status"
+
+    # Time remaining
+    TIME_LEFT=$(pmset -g batt | grep -o "[0-9]*:[0-9]*" | head -1)
+    [ -n "$TIME_LEFT" ] && row "Time remaining" "$TIME_LEFT"
+
+    # Deep stats from system_profiler (the reliable source for M-series)
+    # Runs once and we extract multiple fields
+    POWER_DATA=$(system_profiler SPPowerDataType 2>/dev/null)
+
+    CYCLE_COUNT=$(echo "$POWER_DATA" | awk '/Cycle Count/{print $3}')
+    MAX_CAPACITY=$(echo "$POWER_DATA" | awk '/Maximum Capacity/{print $3}')
+    CONDITION=$(echo "$POWER_DATA" | awk '/Condition/{print $2}')
+
+    # Cycle count with wear indicator
+    if [ -n "$CYCLE_COUNT" ]; then
+        # M4 MacBook Air rated for 1000 cycles at 80% capacity
+        CYCLES_LEFT=$((1000 - CYCLE_COUNT))
+        if [ "$CYCLE_COUNT" -lt 500 ]; then
+            CYCLE_COLOR="$GREEN"
+        elif [ "$CYCLE_COUNT" -lt 800 ]; then
+            CYCLE_COLOR="$YELLOW"
+        else
+            CYCLE_COLOR="$RED"
+        fi
+        row "Cycle count" "${CYCLE_COLOR}${CYCLE_COUNT}${RESET} / 1000  (≈${CYCLES_LEFT} remaining)"
+    fi
+
+    # Max capacity (health %)
+    if [ -n "$MAX_CAPACITY" ]; then
+        # Strip % sign for comparison
+        CAP_NUM=${MAX_CAPACITY/\%/}
+        if [ "$CAP_NUM" -ge 90 ] 2>/dev/null; then
+            CAP_COLOR="$GREEN"
+        elif [ "$CAP_NUM" -ge 80 ] 2>/dev/null; then
+            CAP_COLOR="$YELLOW"
+        else
+            CAP_COLOR="$RED"
+        fi
+        row "Max capacity" "${CAP_COLOR}${MAX_CAPACITY}${RESET} of design capacity"
+    fi
+
+    # Condition label
+    if [ -n "$CONDITION" ]; then
+        [[ "$CONDITION" == "Normal" ]] && COND_COLOR="$GREEN" || COND_COLOR="$RED"
+        row "Condition" "${COND_COLOR}${CONDITION}${RESET}"
+    fi
+
+    # Temperature via ioreg (in millidegrees Celsius → convert to °C)
+    TEMP_RAW=$(ioreg -rn "AppleSmartBattery" 2>/dev/null \
+        | grep '"Temperature"' | awk '{print $3}')
+    if [ -n "$TEMP_RAW" ]; then
+        TEMP_C=$(echo "scale=1; $TEMP_RAW / 100" | bc 2>/dev/null)
+        [ -n "$TEMP_C" ] && row "Temperature" "${TEMP_C}°C"
+    fi
+
+else
+    warn "No internal battery detected."
 fi
 
+# ── CONNECTIVITY ─────────────────────────────────────────────────────────────
 header "CONNECTIVITY"
 
-# 1. Interface & SSID
 iface=$(route get default 2>/dev/null | awk '/interface/ {print $2}')
 row "Interface" "${iface:-Disconnected}"
 
 if [ "$iface" = "en0" ] || [ "$iface" = "en1" ]; then
     ssid=$(networksetup -getairportnetwork "$iface" 2>/dev/null | sed 's/Current Wi-Fi Network: //')
     if [[ "$ssid" != *"You are not associated"* ]] && [ -n "$ssid" ]; then
-         row "WiFi Network" "$ssid"
+        row "WiFi Network" "$ssid"
     fi
 fi
 
-# 2. Local IP
 local_ip=$(ipconfig getifaddr "$iface" 2>/dev/null)
 row "Local IP" "${local_ip:-N/A}"
 
-# 3. Public IP (Fast Timeout) - NEW
-# Checks what the outside world sees (useful for VPN verification)
-public_ip=$(curl -s --max-time 1 https://ifconfig.me)
+public_ip=$(curl -s --max-time 2 https://ifconfig.me)
 row "Public IP" "${public_ip:-Unreachable}"
 
-# 4. Ping Check
 if ping -c 1 -W 500 8.8.8.8 &>/dev/null; then
-    ok "Internet Online (Google DNS)"
+    ok "Internet online (Google DNS)"
 else
-    err "Internet Offline"
+    err "Internet offline"
 fi
 
+# ── DEV STACK ────────────────────────────────────────────────────────────────
 header "DEV STACK"
 
-# 1. User & Git Identity - NEW
 git_user=$(git config --global user.name)
 if [ -z "$git_user" ]; then
-    row "User" "$(whoami) ${RED}(Git Unconfigured)${RESET}"
+    row "User" "$(whoami) ${RED}(Git unconfigured)${RESET}"
 else
-    row "User" "$(whoami)"
+    row "User" "$(whoami)  •  git: $git_user"
 fi
 
-# 2. uv
 if command -v uv &>/dev/null; then
     uv_ver=$(uv --version | awk '{print $2}')
-    row "uv Package Mgr" "${GREEN}v$uv_ver${RESET}"
+    row "uv" "${GREEN}v$uv_ver${RESET}"
 else
-    row "uv Package Mgr" "${RED}Not Installed${RESET}"
+    row "uv" "${RED}Not installed${RESET}"
 fi
 
-# 3. Docker
 if pgrep -f Docker >/dev/null; then
-    row "Docker Engine" "${GREEN}Running${RESET}"
+    row "Docker" "${GREEN}Running${RESET}"
 else
-    row "Docker Engine" "${YELLOW}Stopped${RESET}"
+    row "Docker" "${YELLOW}Stopped${RESET}"
 fi
+
+
