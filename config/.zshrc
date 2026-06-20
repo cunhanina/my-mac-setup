@@ -84,8 +84,6 @@ setopt NUMERIC_GLOB_SORT  # sort file10 after file9, not after file1
 eval "$(zoxide init zsh)"
 
 # Initialize starship prompt with explicit config path
-export STARSHIP_CONFIG="$ZDOTDIR/starship.toml"
-eval "$(starship init zsh)"
 
 # Load completion system
 autoload -Uz compinit

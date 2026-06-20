@@ -35,10 +35,8 @@ export VISUAL="code -w"
 # =========================================================
 
 export ZSH="$HOME/.oh-my-zsh"
-# Leaving theme blank because Starship handles the prompt
 ZSH_THEME=""
 
-# Load plugins
 plugins=(git fast-syntax-highlighting zsh-autosuggestions zsh-history-substring-search zsh-vi-mode)
 source $ZSH/oh-my-zsh.sh
 
@@ -56,7 +54,6 @@ export EZA_COLORS="di=38;5;213:fi=38;5;253:da=38;5;117:uu=38;5;141:gu=38;5;141:s
 # History
 # =========================================================
 
-# Updated to keep history file out of your home directory
 HISTFILE="$ZDOTDIR/.zsh_history"
 HISTSIZE=100000
 SAVEHIST=100000
@@ -74,27 +71,19 @@ setopt HIST_FIND_NO_DUPS
 
 setopt AUTOCD
 setopt NOBEEP
-setopt NUMERIC_GLOB_SORT  # sort file10 after file9, not after file1
+setopt NUMERIC_GLOB_SORT
 
 # =========================================================
 # Completion & Navigation
 # =========================================================
 
-# Initialize zoxide (smarter cd)
 eval "$(zoxide init zsh)"
-
-# Initialize starship prompt with explicit config path
-export STARSHIP_CONFIG="$ZDOTDIR/starship.toml"
-eval "$(starship init zsh)"
 
 # Load completion system
 autoload -Uz compinit
 compinit -d "$ZCOMPDUMP"
 
-# Enable interactive completion menu selection
 zstyle ':completion:*' menu select
-
-# Make completion case-insensitive (e.g., "doc" -> "Documents")
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 
 # =========================================================
@@ -102,11 +91,11 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 # =========================================================
 
 if [[ -f /opt/homebrew/opt/fzf/shell/key-bindings.zsh ]]; then
-  source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
-  source /opt/homebrew/opt/fzf/shell/completion.zsh
+    source /opt/homebrew/opt/fzf/shell/key-bindings.zsh
+    source /opt/homebrew/opt/fzf/shell/completion.zsh
 elif [[ -f /usr/local/opt/fzf/shell/key-bindings.zsh ]]; then
-  source /usr/local/opt/fzf/shell/key-bindings.zsh
-  source /usr/local/opt/fzf/shell/completion.zsh
+    source /usr/local/opt/fzf/shell/key-bindings.zsh
+    source /usr/local/opt/fzf/shell/completion.zsh
 fi
 
 # =========================================================
@@ -119,9 +108,9 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # Load Custom Configurations (MUST BE LAST)
 # =========================================================
 
-# Loop through all .zsh files in the config directory and source them
+# Starship is initialized in prompt.zsh — do NOT add it here.
 for config_file in "$ZDOTDIR"/*.zsh; do
-  if [[ -f "$config_file" ]]; then
-    source "$config_file"
-  fi
+    if [[ -f "$config_file" ]]; then
+        source "$config_file"
+    fi
 done

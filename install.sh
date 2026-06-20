@@ -1,39 +1,44 @@
 #!/bin/zsh
-# FIX: derive SCRIPT_DIR from the script's own location, not from pwd.
-# Previously `source ./scripts/_styles.sh` and `REPO_DIR=$(pwd)` only worked
-# if you ran install.sh from the repo root — any other directory broke silently.
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${(%):-%x}")" && pwd)"
 source "$SCRIPT_DIR/scripts/_styles.sh"
 
-header "🔗 LINKING MAC SETUP..."
+header "LINKING MAC SETUP..."
 
-REPO_DIR="$SCRIPT_DIR"
+SKIP=(
+    organize screenshot_mover.py
+    com.maxykoin.organize.plist com.maxykoin.screenshot-mover.plist
+    install-organize-plist dupes ports pj _styles.sh
+)
 
-# 1. Link scripts (force-create symlinks so re-runs are safe)
-for script in "$REPO_DIR/scripts/"*; do
+mkdir -p "$HOME/bin"
+
+for script in "$SCRIPT_DIR/scripts/"*; do
     name=$(basename "$script")
+    skip=false
+    for s in "${SKIP[@]}"; do
+        [[ "$name" == "$s" ]] && skip=true && break
+    done
+    if $skip; then
+        info "Skipping $name (replaced by Raycast)"
+        continue
+    fi
     ln -sf "$script" "$HOME/bin/$name"
 done
 
-ok "Scripts linked: Repo → ~/bin"
+ok "Scripts linked → ~/bin"
 
-# 2. Setup Zsh config
-if ! grep -q "pj()" ~/.zshrc; then
-    echo 'export PATH="$HOME/bin:$HOME/.local/bin:$PATH"' >> ~/.zshrc
-    echo 'pj() { cd "$($HOME/bin/pj $@)" }' >> ~/.zshrc
-    ok "Config added to .zshrc"
+if ! grep -q 'HOME/bin' "$HOME/.zshrc" 2>/dev/null; then
+    echo 'export PATH="$HOME/bin:$HOME/.local/bin:$PATH"' >> "$HOME/.zshrc"
+    ok "PATH added to .zshrc"
 else
-    info "Zsh config already patched — skipping."
+    info "PATH already in .zshrc — skipping"
 fi
 
-# 3. Install dependencies
 if ! command -v uv &>/dev/null; then
     warn "uv not found — installing..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
 else
-    info "uv already installed — skipping."
+    info "uv already installed — skipping"
 fi
 
-ok "SETUP COMPLETE! Your edits are now live."
-
-
+ok "SETUP COMPLETE!"

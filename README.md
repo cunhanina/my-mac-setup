@@ -6,6 +6,7 @@
 ![Zsh](https://img.shields.io/badge/zsh-%23991199.svg?style=for-the-badge&logo=zsh&logoColor=white)
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![VSCode](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
+![Raycast](https://img.shields.io/badge/Raycast-FF6363?style=for-the-badge&logo=raycast&logoColor=white)
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
@@ -23,55 +24,71 @@
 ---
 
 ## 💻 The Stack
-The core technologies driving this environment.
 
 | Component | Choice | Why? |
 | :--- | :--- | :--- |
-| **Shell** | `Oh My Zsh` | The industry standard for shell management. |
-| **Theme** | `Powerlevel10k` | Instant startup, git status, and icons. |
+| **Shell** | `Oh My Zsh` + `Starship` | Fast prompt with git status and icons. |
+| **Launcher** | `Raycast` | Replaces Spotlight. Runs script commands, manages windows, clipboard history. |
 | **Editor** | `VS Code` | Optimized with custom `settings.json`. |
-| **Font** | `JetBrains Mono` | The best ligature support for coding. |
-| **Colors** | `Catppuccin` | Soothing, high-contrast purple/pastel palette. |
-| **Python** | `uv` | Replaces pip/poetry. 10x-100x faster package management. |
+| **Font** | `JetBrains Mono` | Best ligature support for coding. |
+| **Colors** | `Dracula Purple` | High-contrast purple palette. |
+| **Python** | `uv` | Replaces pip/poetry. 10x–100x faster. |
 
 ---
 
 ## ✨ Features
-Custom scripts designed for "Lazy Productivity."
 
-### 🛠 Workflow Automation
+### 🛠 Workflow Automation (Terminal)
 | Command | Function |
 |:---|:---|
-| `newpy` & `newcpp` | **Project Generator.** Creates repo, installs venv, and pushes to GitHub instantly. |
-| `pj` | **Teleporter.** Instantly jump between projects. |
-| `save` | **Lazy Git.** `git add` + `commit` + `push` in one go. |
-| `note` | **Context-Aware Tasks and Notes.** Detects if you are in a project or global scope to setup the txt file. |
+| `newpy` & `newcpp` | **Project Generator.** Creates repo, installs venv, pushes to GitHub. |
+| `save` | **Lazy Git.** `git add` + `commit` + `push` with conflict detection. |
+| `note` | **Context-Aware Tasks.** Detects git root for project scope vs global. |
+| `use` | **venv Activator.** Activates `.venv` at git root or by project name. |
+| `morning` | **Daily Dashboard.** Git status, calendar, tasks, weather, quote. |
+| `week` | **Weekly Review.** Commit counts + completed tasks across all projects. |
 
-### ⚙️ System & Maintenance
+### ⚙️ System & Maintenance (Terminal)
 | Command | Function |
 |:---|:---|
-| `health` | **Status Dashboard.** Checks battery, internet connection, and disk space. |
-| `ports` | **Port Scanner.** Shows active listening ports (Great for Flask/Django). |
-| `update` | **System Updater.** Updates Homebrew, Zsh, and tools in one click. |
-| `clean` | **System Flush.** Clears DNS cache and frees up RAM. |
-| `pyclean` | **Janitor.** Recursively nukes `__pycache__` and `.DS_Store`. |
-| `organize` | **File Sorter.** Cleans up the Downloads folder automatically. |
+| `health` | **Status Dashboard.** Battery, RAM, disk, connectivity, dev stack. |
+| `update` | **System Updater.** Homebrew + uv + Oh My Zsh in one command. |
+| `clean` | **System Flush.** DNS + RAM purge + brew cleanup. App-specific mode via `clean <AppName>`. |
+| `pyclean` | **Janitor.** Recursively nukes `__pycache__`, `.ruff_cache`, `.mypy_cache`, etc. |
+
+### 🚀 Raycast Script Commands
+Located in `raycast-commands/`. Install via Raycast → Settings → Extensions → Script Commands → Add Directories.
+
+| Command | Replaces | Mode |
+|:---|:---|:---|
+| `Health` | `health` (terminal) | fullOutput |
+| `Morning` | `morning` (terminal) | fullOutput |
+| `Clean System` | `clean` no-arg path | fullOutput |
+| `Week` | `week` (terminal) | fullOutput |
+| `Note Add` | `note "text"` for global tasks | silent |
+
+### 🔌 Raycast Extensions (install from Store)
+| Extension | Replaces |
+|:---|:---|
+| Project Manager | `pj` script |
+| Port Manager | `ports` script |
+| Duplicate File Finder | `dupes` script |
+| File Organizer | `organize` script + launchd |
+| Clipboard History | — (new, built-in) |
+| Window Management | — (new, built-in) |
+| Snippets | — (new, built-in) |
 
 ---
 
 ## 🆚 VS Code Config
 
-My production-ready `settings.json` optimized for Python, Data Science, and Automation.
-
 **Path:** `vscode/settings.json`
 
-* **Python:** Strict linting with `Ruff` and auto-formatting on save.
-* **Terminal:** Integrated Zsh with custom fonts and transparency.
-* **UI:** Minimalist layout (Hidden activity bars, breadcrumbs) for focus.
+* **Python:** Ruff formatter, format-on-save, organize imports, Pylance basic type checking.
+* **Terminal:** Zsh, JetBrainsMonoNL Nerd Font, 10k scrollback.
+* **UI:** No minimap, no breadcrumbs, sticky scroll, bracket pair guides.
 
 ### 📥 Install Settings
-To apply these settings to your machine:
-
 ```bash
 mkdir -p ~/Library/Application\ Support/Code/User
 cp vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
@@ -82,47 +99,32 @@ cp vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
 ## 🚀 Installation
 
 ### Phase 1: The Foundation
-Perform these steps manually on a fresh Mac to prepare the environment.
-
-**1. Install Command Line Tools**
 ```bash
 xcode-select --install
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install --cask raycast font-jetbrains-mono-nerd-font
+brew install git gh bat glow uv fzf fd eza zoxide ripgrep starship
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
-**2. Install Homebrew**
+### Phase 2: Clone and Install
 ```bash
-/bin/bash -c "$(curl -fsSL [https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh](https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh))"
-```
-
-**3. Install Core Apps & Fonts**
-```bash
-brew install --cask iterm2 font-jetbrains-mono-nerd-font
-brew install git gh bat glow uv
-```
-
-**4. Install Oh My Zsh**
-```bash
-sh -c "$(curl -fsSL [https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh](https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh))"
-```
-
-**5. Install Powerlevel10k**
-```bash
-git clone --depth=1 [https://github.com/romkatv/powerlevel10k.git](https://github.com/romkatv/powerlevel10k.git) ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-```
-
-### Phase 2: The Automation
-Now, clone this repo and let the installer configure your aliases, paths, and plugins.
-
-```bash
-# 1. Login to GitHub
 gh auth login
-
-# 2. Clone this repo
-git clone [https://github.com/cunhanina/my-mac-setup.git](https://github.com/cunhanina/my-mac-setup.git)
+git clone https://github.com/cunhanina/my-mac-setup.git
 cd my-mac-setup
-
-# 3. Run the installer
 ./install.sh
+```
+
+### Phase 3: Raycast Setup
+```
+1. Open Raycast → Settings → Extensions → Script Commands
+2. Click "Add Directories" → select raycast-commands/ from this repo
+3. Open Raycast Store and install:
+   - Project Manager  (set root: ~/Desktop/coding)
+   - Port Manager
+   - Duplicate File Finder
+   - File Organizer
+4. Enable built-ins: Clipboard History, Window Management, Snippets
 ```
 
 <div align="center">
