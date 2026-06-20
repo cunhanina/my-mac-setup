@@ -1,0 +1,9 @@
+cat <<EOT >> .gitignore
+
+# Zsh ignores
+config/zsh/.zcompdump*
+config/zsh/.zsh_history
+config/zsh/nvim.log
+config/zsh/plugins/
+EOT
+.DS_Store
