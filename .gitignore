@@ -1,9 +1,7 @@
-cat <<EOT >> .gitignore
-
-# Zsh ignores
-config/zsh/.zcompdump*
-config/zsh/.zsh_history
-config/zsh/nvim.log
-config/zsh/plugins/
-EOT
 .DS_Store
+
+# Zsh runtime/cache — not source, shouldn't be tracked
+config/.zcompdump*
+config/.zsh_history
+config/nvim.log
+config/plugins/

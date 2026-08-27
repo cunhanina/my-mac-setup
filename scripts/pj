@@ -1,42 +1,38 @@
 #!/bin/zsh
 source ~/bin/_styles.sh
 
-# 1. Configuration
-BASE_DIR="$HOME/Desktop/coding"
-SEARCH_QUERY="$1"
+CODING_ROOT="$HOME/Desktop/coding"
 
-# 2. Safety Check
-if [ ! -d "$BASE_DIR" ]; then
-    echo "${RED}✖ Error: Coding folder not found at $BASE_DIR${RESET}" >&2
+if ! command -v fzf &>/dev/null; then
+    err "fzf not found. Install with: brew install fzf"
     exit 1
 fi
 
-# 3. List Mode (No argument)
-if [ -z "$SEARCH_QUERY" ]; then
-    header "📂 Projects in $(basename "$BASE_DIR")"
-    
-    # Find all folders (depth 1 and 2), exclude hidden ones
-    find "$BASE_DIR" -maxdepth 2 -mindepth 1 -type d -not -path '*/.*' | \
-    sed "s|$BASE_DIR/||" | \
-    sort | \
-    awk '{print "  👉 " $0}' >&2
-    exit 0
-fi
-
-# 4. Search Mode
-# finding exact match first
-TARGET=$(find "$BASE_DIR" -maxdepth 2 -type d -name "$SEARCH_QUERY" -print -quit)
-
-# If no exact match, try partial match
-if [ -z "$TARGET" ]; then
-    TARGET=$(find "$BASE_DIR" -maxdepth 2 -type d -name "*$SEARCH_QUERY*" -print -quit)
-fi
-
-# 5. Result Handling
-if [ -n "$TARGET" ]; then
-    echo "$TARGET" 
-    exit 0
-else
-    echo "${RED}✖ Project '$SEARCH_QUERY' not found.${RESET}" >&2
+if [[ ! -d "$CODING_ROOT" ]]; then
+    err "$CODING_ROOT does not exist."
     exit 1
 fi
+
+# Any directory two levels deep containing a .git is a project.
+# (matches the new/health/week convention: <lang>/<project-name>/.git)
+SELECTION=$(find "$CODING_ROOT" -mindepth 1 -maxdepth 3 -name ".git" -type d 2>/dev/null \
+    | sed 's|/\.git$||' \
+    | sed "s|$CODING_ROOT/||" \
+    | sort \
+    | fzf --prompt="Jump to project ➜ " --height=40% --reverse --border)
+
+[[ -z "$SELECTION" ]] && exit 0
+
+TARGET_DIR="$CODING_ROOT/$SELECTION"
+
+osascript <<EOF
+tell application "iTerm"
+    activate
+    tell current window
+        create tab with default profile
+        tell current session
+            write text "cd '$TARGET_DIR'; clear"
+        end tell
+    end tell
+end tell
+EOF

@@ -1,5 +1,6 @@
-# ~/.config/zsh/.zshenv
-
+# config/.zshenv — deployed to ~/.config/zsh/.zshenv by install.sh
+# NOT the same file as ~/.zshenv (which only sets ZDOTDIR and must stay
+# directly in $HOME — zsh reads it before ZDOTDIR exists).
 # ---------- XDG base directories ----------
 # Centralizes config/cache/data locations
 export XDG_CONFIG_HOME="$HOME/.config"

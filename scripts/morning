@@ -1,0 +1,155 @@
+#!/bin/zsh
+source ~/bin/_styles.sh
+
+# ---------------------------------------------------------------------------
+# morning — daily orientation dashboard
+#
+# Dependencies: brew install icalbuddy
+# Usage:
+#   morning          full dashboard
+#   morning --quick  skip web requests (weather/quotes)
+# ---------------------------------------------------------------------------
+
+QUICK=false
+[[ "$1" == "--quick" ]] && QUICK=true
+
+clear
+echo ""
+
+# ── 0. GREETING ─────────────────────────────────────────────────────────────
+HOUR=$(date +%H)
+if (( HOUR < 12 )); then
+    GREETING="Good morning"
+    ICON="🌅"
+elif (( HOUR < 18 )); then
+    GREETING="Good afternoon"
+    ICON="☀️"
+else
+    GREETING="Good evening"
+    ICON="🌙"
+fi
+
+echo "${BOLD}${CYAN}  ${ICON}  ${GREETING}, $(id -un) — $(date '+%A, %B %d')${RESET}"
+echo "  ─────────────────────────────────────────────────"
+echo ""
+
+# ── 1. WEATHER ──────────────────────────────────────────────────────────────
+# Raycast has a native Weather extension — but the terminal version is kept
+# here for --quick mode parity and for use outside Raycast context.
+if ! $QUICK; then
+    header "WEATHER  •  Curitiba"
+    WEATHER=$(curl -s --max-time 4 "https://wttr.in/Curitiba?format=%c+%t+•+Feels+like+%f+•+%w" 2>/dev/null)
+    if [[ -n "$WEATHER" && "$WEATHER" != *"Unknown"* ]]; then
+        echo "  $WEATHER"
+    else
+        warn "  Weather unavailable."
+    fi
+    echo ""
+fi
+
+# ── 2. ONGOING WORK (Git Status) ────────────────────────────────────────────
+header "ONGOING WORK"
+
+FOUND_CHANGES=false
+while IFS= read -r -d '' gitdir; do
+    REPO_DIR=$(dirname "$gitdir")
+    REPO_NAME=$(basename "$REPO_DIR")
+    PORCELAIN=$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)
+    if [[ -n "$PORCELAIN" ]]; then
+        CHANGE_COUNT=$(echo "$PORCELAIN" | wc -l | tr -d ' ')
+        echo "  ${BOLD}$REPO_NAME${RESET}  •  $CHANGE_COUNT pending file(s)"
+        FOUND_CHANGES=true
+    fi
+done < <(find "$HOME/Desktop/coding" -maxdepth 3 -name ".git" -type d -print0 2>/dev/null)
+
+if ! $FOUND_CHANGES; then
+    ok "  All clean. No uncommitted work."
+fi
+echo ""
+
+# ── 3. TODAY'S CALENDAR EVENTS ──────────────────────────────────────────────
+# Note: Raycast Calendar extension shows today's events in the menubar.
+# This section is kept for the full terminal dashboard view.
+header "TODAY'S EVENTS"
+if command -v icalbuddy &>/dev/null; then
+    EVENTS=$(icalbuddy -f -ea -nc -npn -b "  • " -eep "notes,url,location" eventsToday 2>/dev/null)
+    if [[ -n "$EVENTS" ]]; then
+        echo "$EVENTS"
+    else
+        ok "  Nothing scheduled for today."
+    fi
+else
+    warn "  icalbuddy not installed. Run: brew install icalbuddy"
+fi
+echo ""
+
+# ── 4. UPCOMING (next 3 days) ───────────────────────────────────────────────
+header "COMING UP  •  next 3 days"
+if command -v icalbuddy &>/dev/null; then
+    UPCOMING=$(icalbuddy -f -ea -nc -npn -b "  • " -eep "notes,url,location" eventsFrom:tomorrow to:today+3 2>/dev/null)
+    if [[ -n "$UPCOMING" ]]; then
+        echo "$UPCOMING"
+    else
+        ok "  Clear horizon."
+    fi
+fi
+echo ""
+
+# ── 5. PENDING TASKS ────────────────────────────────────────────────────────
+header "PENDING TASKS"
+
+GLOBAL_NOTES="$HOME/Desktop/notes.md"
+GLOBAL_TASKS=""
+if [[ -f "$GLOBAL_NOTES" ]]; then
+    GLOBAL_TASKS=$(grep -E '^[ \t]*[-*] \[ \] [^[:space:]]' "$GLOBAL_NOTES" 2>/dev/null)
+    if [[ -n "$GLOBAL_TASKS" ]]; then
+        echo "  ${BOLD}Global Notes:${RESET}"
+        echo "$GLOBAL_TASKS" | sed -E 's/^[ \t]*[-*] \[ \]/    • /' | head -5
+    fi
+fi
+
+TODO_COUNT=0
+while IFS= read -r -d '' TODO; do
+    PROJECT=$(basename "$(dirname "$TODO")")
+    TASKS=$(grep -E '^[ \t]*[-*] \[ \] [^[:space:]]' "$TODO" 2>/dev/null)
+    if [[ -n "$TASKS" ]]; then
+        TODO_COUNT=$((TODO_COUNT + 1))
+        echo "  ${BOLD}$PROJECT:${RESET}"
+        echo "$TASKS" | sed -E 's/^[ \t]*[-*] \[ \]/    • /' | head -3
+    fi
+done < <(find "$HOME/Desktop/coding" -maxdepth 3 -name "todo.md" -print0 2>/dev/null)
+
+if [[ "$TODO_COUNT" -eq 0 && -z "$GLOBAL_TASKS" ]]; then
+    ok "  Zero pending tasks. Inbox zero!"
+fi
+echo ""
+
+# ── 6. QUOTE OF THE DAY ─────────────────────────────────────────────────────
+header "THOUGHT FOR TODAY"
+
+QUOTE=""
+if ! $QUICK; then
+    QUOTE=$(curl -s --max-time 3 "https://zenquotes.io/api/today" \
+        | grep -o '"q":"[^"]*","a":"[^"]*"' \
+        | head -1 \
+        | sed 's/"q":"//; s/","a":"/ — /; s/"//g' 2>/dev/null)
+fi
+
+if [[ -z "$QUOTE" ]]; then
+    QUOTES=(
+        "The best time to plant a tree was 20 years ago. The second best time is now."
+        "Simplicity is the ultimate sophistication. — Leonardo da Vinci"
+        "Every expert was once a beginner."
+        "Make it work, make it right, make it fast. — Kent Beck"
+        "A ship in harbor is safe, but that's not what ships are for."
+        "Done is better than perfect."
+        "The secret of getting ahead is getting started. — Mark Twain"
+        "Programs must be written for people to read, and only incidentally for machines to execute."
+        "Stay hungry, stay foolish. — Steve Jobs"
+        "First, solve the problem. Then, write the code. — John Johnson"
+    )
+    QUOTE="${QUOTES[$(( RANDOM % ${#QUOTES[@]} ))]}"
+fi
+
+echo "  ${QUOTE}"
+echo ""

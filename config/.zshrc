@@ -84,6 +84,7 @@ setopt NUMERIC_GLOB_SORT  # sort file10 after file9, not after file1
 eval "$(zoxide init zsh)"
 
 # Initialize starship prompt with explicit config path
+eval "$(starship init zsh)"
 
 # Load completion system
 autoload -Uz compinit
@@ -111,7 +112,7 @@ fi
 # Python / uv
 # =========================================================
 
-export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 
 # =========================================================
 # Load Custom Configurations (MUST BE LAST)

@@ -1,0 +1,10 @@
+{
+    "projectManager.projectsLocation": "~/desktop/coding/*/*",
+    "projectManager.git.baseFolders": [
+        "~/desktop/coding/*/*"
+    ],
+    "projectManager.openInNewWindowWhenClickingInStatusBar": true,
+    "projectManager.any.baseFolders": [
+        "~/desktop/coding/*/*"
+    ]
+}
