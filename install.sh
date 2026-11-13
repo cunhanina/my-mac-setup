@@ -8,18 +8,20 @@ header "LINKING MAC SETUP..."
 
 mkdir -p "$HOME/bin"
 
-# _styles.sh is a sourced dependency, not a standalone command — but every
-# other script resolves it at $HOME/bin/_styles.sh, so it must always be
-# linked first, unconditionally, regardless of what gets skipped below.
+# _styles.sh and _use.sh are sourced dependencies, not standalone commands:
+# - _styles.sh is sourced by all scripts at $HOME/bin/_styles.sh
+# - _use.sh is sourced via `alias use='source "$HOME/bin/_use.sh"'` in aliases.zsh
 ln -sf "$SCRIPT_DIR/scripts/_styles.sh" "$HOME/bin/_styles.sh"
+ln -sf "$SCRIPT_DIR/scripts/use" "$HOME/bin/_use.sh"
 
-# use must stay alias-only (config/aliases.zsh) — it calls `source
-# .venv/bin/activate` + `return`, which only works sourced into the
-# current shell, never as a symlinked subprocess.
+# Remove legacy/broken symlinks if present
+rm -f "$HOME/bin/use" "$HOME/bin/"*.plist 2>/dev/null
+
 SKIP=(_styles.sh use)
 
 for script in "$SCRIPT_DIR/scripts/"*; do
     name=$(basename "$script")
+    [[ "$name" == *.plist ]] && continue
     skip=false
     for s in "${SKIP[@]}"; do
         [[ "$name" == "$s" ]] && skip=true && break
@@ -27,6 +29,7 @@ for script in "$SCRIPT_DIR/scripts/"*; do
     if $skip; then
         continue
     fi
+    chmod +x "$script"
     ln -sf "$script" "$HOME/bin/$name"
 done
 
@@ -56,7 +59,34 @@ done
 
 ok "Zsh config linked → \$ZDOTDIR ($HOME/.config/zsh)"
 
-# --- 3. Toolchains -------------------------------------------------------
+# --- 3. VS Code Settings -------------------------------------------------
+
+VSCODE_USER_DIR="$HOME/Library/Application Support/Code/User"
+if [[ -f "$SCRIPT_DIR/vscode/settings.json" ]]; then
+    mkdir -p "$VSCODE_USER_DIR"
+    ln -sf "$SCRIPT_DIR/vscode/settings.json" "$VSCODE_USER_DIR/settings.json"
+    ok "VS Code settings linked → $VSCODE_USER_DIR/settings.json"
+fi
+
+# --- 4. macOS Screenshot Location ----------------------------------------
+
+mkdir -p "$HOME/Screenshots"
+CURRENT_SS_LOC=$(defaults read com.apple.screencapture location 2>/dev/null || echo "")
+if [[ "$CURRENT_SS_LOC" != "$HOME/Screenshots" ]]; then
+    defaults write com.apple.screencapture location "$HOME/Screenshots"
+    killall SystemUIServer 2>/dev/null || true
+    ok "Screenshots redirected → ~/Screenshots (native macOS setting)"
+else
+    info "Screenshots already set to ~/Screenshots — skipping"
+fi
+
+# --- 5. Toolchains & Dependencies ----------------------------------------
+
+if [[ "$1" == "--bundle" || "$1" == "--deps" ]] && command -v brew &>/dev/null && [[ -f "$SCRIPT_DIR/Brewfile" ]]; then
+    step "Installing Homebrew bundle from Brewfile..."
+    brew bundle --file="$SCRIPT_DIR/Brewfile"
+    ok "Brewfile dependencies installed"
+fi
 
 if ! command -v uv &>/dev/null; then
     warn "uv not found — installing..."

@@ -1,14 +1,29 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
 
 # ---------------------------------------------------------------------------
 # use — activate the uv virtual environment for a project
 #
 # Usage:
 #   use          activate .venv in the current directory (or git root)
-#   use <name>   activate .venv for a named project under ~/Desktop/coding
+#   use <name>   activate .venv for a named project under $CODING_ROOT
 #   use off      deactivate the current environment
 # ---------------------------------------------------------------------------
+
+# Ensure 'use' is being sourced into the current shell, not executed as a child process
+if [[ "${ZSH_EVAL_CONTEXT:-}" != *:file* ]]; then
+    err "'use' must be sourced so it can modify your active shell."
+    info "Run 'use' via the shell alias (alias use='source ~/bin/_use.sh')."
+    exit 1
+fi
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "use — Python Virtualenv Activator"
+    row "use" "Activate .venv in current directory or git root"
+    row "use <name>" "Find project under $CODING_ROOT and activate its .venv"
+    row "use off" "Deactivate the active virtual environment"
+    return 0
+fi
 
 # MODE: OFF — deactivate
 if [[ "$1" == "off" ]]; then
@@ -24,7 +39,7 @@ fi
 # MODE: NAMED PROJECT — find it under the coding tree
 if [ -n "$1" ]; then
     SEARCH="$1"
-    BASE="$HOME/Desktop/coding"
+    BASE="$CODING_ROOT"
 
     # Exact match first, then partial
     TARGET=$(find "$BASE" -maxdepth 3 -type d -name "$SEARCH" -print -quit 2>/dev/null)

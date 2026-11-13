@@ -1,5 +1,5 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
 
 # ---------------------------------------------------------------------------
 # morning — daily orientation dashboard
@@ -10,18 +10,41 @@ source ~/bin/_styles.sh
 #   morning --quick  skip web requests (weather/quotes)
 # ---------------------------------------------------------------------------
 
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "morning — Daily Orientation Dashboard"
+    row "morning" "Full dashboard (weather, git status, calendar, tasks, quote)"
+    row "morning --quick" "Offline/fast mode (skips weather and quote API calls)"
+    exit 0
+fi
+
 QUICK=false
-[[ "$1" == "--quick" ]] && QUICK=true
+[[ "$1" == "--quick" || "$1" == "-q" ]] && QUICK=true
+
+# Fire network requests in parallel in the background so they run while local checks execute
+if ! $QUICK; then
+    WEATHER_TMP=$(mktemp)
+    QUOTE_TMP=$(mktemp)
+    trap 'rm -f "$WEATHER_TMP" "$QUOTE_TMP"' EXIT
+
+    (curl -fsSL --max-time 3 "https://wttr.in/${WEATHER_CITY}?format=%c+%t+•+Feels+like+%f+•+%w" > "$WEATHER_TMP" 2>/dev/null) &
+    WEATHER_PID=$!
+
+    (curl -fsSL --max-time 3 "https://zenquotes.io/api/today" 2>/dev/null \
+        | grep -o '"q":"[^"]*","a":"[^"]*"' \
+        | head -1 \
+        | sed 's/"q":"//; s/","a":"/ — /; s/"//g' > "$QUOTE_TMP" 2>/dev/null) &
+    QUOTE_PID=$!
+fi
 
 clear
 echo ""
 
 # ── 0. GREETING ─────────────────────────────────────────────────────────────
 HOUR=$(date +%H)
-if (( HOUR < 12 )); then
+if (( 10#$HOUR < 12 )); then
     GREETING="Good morning"
     ICON="🌅"
-elif (( HOUR < 18 )); then
+elif (( 10#$HOUR < 18 )); then
     GREETING="Good afternoon"
     ICON="☀️"
 else
@@ -34,11 +57,10 @@ echo "  ────────────────────────
 echo ""
 
 # ── 1. WEATHER ──────────────────────────────────────────────────────────────
-# Raycast has a native Weather extension — but the terminal version is kept
-# here for --quick mode parity and for use outside Raycast context.
 if ! $QUICK; then
-    header "WEATHER  •  Curitiba"
-    WEATHER=$(curl -s --max-time 4 "https://wttr.in/Curitiba?format=%c+%t+•+Feels+like+%f+•+%w" 2>/dev/null)
+    header "WEATHER  •  ${WEATHER_CITY}"
+    wait "$WEATHER_PID" 2>/dev/null
+    WEATHER=$(cat "$WEATHER_TMP" 2>/dev/null)
     if [[ -n "$WEATHER" && "$WEATHER" != *"Unknown"* ]]; then
         echo "  $WEATHER"
     else
@@ -55,21 +77,28 @@ while IFS= read -r -d '' gitdir; do
     REPO_DIR=$(dirname "$gitdir")
     REPO_NAME=$(basename "$REPO_DIR")
     PORCELAIN=$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)
-    if [[ -n "$PORCELAIN" ]]; then
-        CHANGE_COUNT=$(echo "$PORCELAIN" | wc -l | tr -d ' ')
-        echo "  ${BOLD}$REPO_NAME${RESET}  •  $CHANGE_COUNT pending file(s)"
+    AHEAD=$(git -C "$REPO_DIR" rev-list --count @{u}..HEAD 2>/dev/null || echo 0)
+
+    if [[ -n "$PORCELAIN" || "$AHEAD" -gt 0 ]]; then
+        DETAILS=()
+        if [[ -n "$PORCELAIN" ]]; then
+            CHANGE_COUNT=$(echo "$PORCELAIN" | wc -l | tr -d ' ')
+            DETAILS+=("$CHANGE_COUNT uncommitted file(s)")
+        fi
+        if [[ "$AHEAD" -gt 0 ]]; then
+            DETAILS+=("${YELLOW}$AHEAD unpushed commit(s)${RESET}")
+        fi
+        echo "  ${BOLD}$REPO_NAME${RESET}  •  ${(j:  •  :)DETAILS}"
         FOUND_CHANGES=true
     fi
-done < <(find "$HOME/Desktop/coding" -maxdepth 3 -name ".git" -type d -print0 2>/dev/null)
+done < <(find "$CODING_ROOT" -maxdepth 3 -name ".git" -type d -print0 2>/dev/null)
 
 if ! $FOUND_CHANGES; then
-    ok "  All clean. No uncommitted work."
+    ok "  All clean. No uncommitted or unpushed work."
 fi
 echo ""
 
 # ── 3. TODAY'S CALENDAR EVENTS ──────────────────────────────────────────────
-# Note: Raycast Calendar extension shows today's events in the menubar.
-# This section is kept for the full terminal dashboard view.
 header "TODAY'S EVENTS"
 if command -v icalbuddy &>/dev/null; then
     EVENTS=$(icalbuddy -f -ea -nc -npn -b "  • " -eep "notes,url,location" eventsToday 2>/dev/null)
@@ -98,10 +127,9 @@ echo ""
 # ── 5. PENDING TASKS ────────────────────────────────────────────────────────
 header "PENDING TASKS"
 
-GLOBAL_NOTES="$HOME/Desktop/notes.md"
 GLOBAL_TASKS=""
-if [[ -f "$GLOBAL_NOTES" ]]; then
-    GLOBAL_TASKS=$(grep -E '^[ \t]*[-*] \[ \] [^[:space:]]' "$GLOBAL_NOTES" 2>/dev/null)
+if [[ -f "$NOTES_FILE" ]]; then
+    GLOBAL_TASKS=$(grep -E '^[ \t]*[-*] \[ \] [^[:space:]]' "$NOTES_FILE" 2>/dev/null)
     if [[ -n "$GLOBAL_TASKS" ]]; then
         echo "  ${BOLD}Global Notes:${RESET}"
         echo "$GLOBAL_TASKS" | sed -E 's/^[ \t]*[-*] \[ \]/    • /' | head -5
@@ -117,7 +145,7 @@ while IFS= read -r -d '' TODO; do
         echo "  ${BOLD}$PROJECT:${RESET}"
         echo "$TASKS" | sed -E 's/^[ \t]*[-*] \[ \]/    • /' | head -3
     fi
-done < <(find "$HOME/Desktop/coding" -maxdepth 3 -name "todo.md" -print0 2>/dev/null)
+done < <(find "$CODING_ROOT" -maxdepth 3 -name "todo.md" -print0 2>/dev/null)
 
 if [[ "$TODO_COUNT" -eq 0 && -z "$GLOBAL_TASKS" ]]; then
     ok "  Zero pending tasks. Inbox zero!"
@@ -129,10 +157,8 @@ header "THOUGHT FOR TODAY"
 
 QUOTE=""
 if ! $QUICK; then
-    QUOTE=$(curl -s --max-time 3 "https://zenquotes.io/api/today" \
-        | grep -o '"q":"[^"]*","a":"[^"]*"' \
-        | head -1 \
-        | sed 's/"q":"//; s/","a":"/ — /; s/"//g' 2>/dev/null)
+    wait "$QUOTE_PID" 2>/dev/null
+    QUOTE=$(cat "$QUOTE_TMP" 2>/dev/null)
 fi
 
 if [[ -z "$QUOTE" ]]; then
@@ -148,8 +174,9 @@ if [[ -z "$QUOTE" ]]; then
         "Stay hungry, stay foolish. — Steve Jobs"
         "First, solve the problem. Then, write the code. — John Johnson"
     )
-    QUOTE="${QUOTES[$(( RANDOM % ${#QUOTES[@]} ))]}"
+    QUOTE="${QUOTES[$(( RANDOM % ${#QUOTES[@]} + 1 ))]}"
 fi
 
 echo "  ${QUOTE}"
 echo ""
+

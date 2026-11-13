@@ -8,6 +8,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![VSCode](https://img.shields.io/badge/VS%20Code-007ACC?style=for-the-badge&logo=visualstudiocode&logoColor=white)
 ![Raycast](https://img.shields.io/badge/Raycast-FF6363?style=for-the-badge&logo=raycast&logoColor=white)
+![CI](https://img.shields.io/github/actions/workflow/status/cunhanina/my-mac-setup/lint.yml?style=for-the-badge&label=CI)
 
 **The ultimate minimalist development environment.** Automated. Fast. Purple.
 
@@ -43,28 +44,29 @@
 ### 🛠 Workflow Automation (Terminal)
 | Command | Function |
 |:---|:---|
-| `new <lang> <name>` | **Project Generator.** `py`, `cpp`, or `go`. Scaffolds, git-inits, pushes a private GitHub repo. |
-| `save` | **Lazy Git.** `git add` + `commit` + `push`, detects if remote is ahead before pushing. |
-| `note` | **Context-Aware Tasks.** Detects git root for project scope vs global (`~/Desktop/notes.md`). |
-| `pj` | **Project Jumper.** `fzf`-search projects under `~/Desktop/coding` (git repos, up to 3 levels deep), opens a new iTerm tab `cd`'d into the pick. |
-| `use [name\|off]` | **venv Activator.** Sourced via alias — see note below. |
-| `week [last]` | **Weekly Review.** Commit counts + completed tasks across all projects. |
-| `morning [--quick]` | **Daily Dashboard.** Weather, git status across projects, today's calendar, pending tasks, a quote. `--quick` skips network calls. Requires `brew install icalbuddy` for calendar events. |
+| `new <lang> <name> [--local\|--public]` | **Project Generator.** `py`, `cpp`, or `go`. Scaffolds, git-inits, pushes a GitHub repo (private by default, `--public`, or `--local` to skip remote). |
+| `save ["msg"]` | **Smart Git Sync.** Guards against `.env`/large files, prints status summary, commits, and rebase-syncs if remote is ahead. |
+| `note [done\|sub\|rm\|edit]` | **Context-Aware Tasks.** Detects git root (`todo.md`) vs global (`~/Desktop/notes.md`). Run `note done` for an interactive `fzf` multi-select picker. |
+| `journal [text\|search\|edit]` | **Daily Dev Journal.** Logs timestamped thoughts under `## YYYY-MM-DD` in `~/Desktop/journal.md` and fuzzy-searches past entries via `fzf`. |
+| `pj [-t\|-c] [query]` | **Project Jumper.** `fzf`-searches git projects under `~/Desktop/coding` with live status/commit/task preview. Jumps in-place (`pj`), opens a new iTerm tab (`pj -t`), or opens VS Code (`pj -c`). |
+| `use [name\|off]` | **venv Activator.** Activates `.venv` in current repo or by project name. Sourced via alias — see note below. |
+| `week [last]` | **Weekly Review.** Aggregates git commits, tasks completed during the week, journal days, and calendar events across all projects. |
+| `morning [--quick]` | **Daily Dashboard.** Parallel-fetched weather & quote, uncommitted + unpushed git work across repos, today's/upcoming calendar, and pending tasks. |
 
 > **`use` must stay an alias, not a binary.** It calls `source .venv/bin/activate`
 > inside your *current* shell — running it as a subprocess would activate the
-> venv in a child process and do nothing to your terminal. `install.sh` does
-> not symlink it into `~/bin` for this reason; `config/aliases.zsh` defines
-> `alias use='source ~/bin/use'` instead. Don't "fix" this by adding it back
-> to the symlink loop.
+> venv in a child process and do nothing to your terminal. `install.sh` links
+> it to `~/bin/_use.sh` and `config/aliases.zsh` defines
+> `alias use='source "$HOME/bin/_use.sh"'`. If run directly as a subprocess,
+> `use` detects it and prints a helpful reminder.
 
 ### ⚙️ System & Maintenance (Terminal)
 | Command | Function |
 |:---|:---|
-| `health` | **Status Dashboard.** Battery, RAM, disk, connectivity, dev stack. |
-| `update` | **System Updater.** Homebrew + uv + Oh My Zsh in one command. |
-| `clean` | **System Flush.** DNS flush + RAM purge + `brew cleanup`. |
-| `pyclean` | **Janitor.** Recursively nukes `__pycache__`, `.ruff_cache`, `.mypy_cache`, etc. |
+| `health` | **Status Dashboard.** CPU, RAM pressure, disk, battery cycles/temp, network, dev toolchain, CLI stack check, and symlink health. |
+| `update` | **System Updater.** Homebrew + `uv` + Oh My Zsh + standalone Zsh plugins in one command. |
+| `clean [AppName]` | **System & App Janitor.** Flushes DNS, purges inactive RAM, cleans Homebrew/`uv` caches, or hunts down leftover `~/Library` files for `<AppName>`. |
+| `pyclean [-n] [dir]` | **Python Janitor.** Recursively nukes `__pycache__`, `.ruff_cache`, `.mypy_cache`, `.pytest_cache`, `build`, `dist` (`-n` for dry-run). |
 
 ### 🔌 Raycast Extensions (install from Store)
 Project search, port inspection, duplicate-file finding, and file
@@ -117,6 +119,28 @@ This bit us once already — see the `PATH` line below.
 `install.sh` at runtime), so it's version-controlled and won't silently
 disappear.
 
+### ⌨️ Keybindings & Shell Shortcuts
+| Shortcut / Alias | Action |
+|:---|:---|
+| `Ctrl + T` | `fzf` file picker (includes hidden files) with `bat` syntax preview |
+| `Ctrl + F` | `fzf` file picker (excludes hidden files) |
+| `Ctrl + \` | Toggle `zsh-autosuggestions` on/off (ideal for clean screen recordings) |
+| `↑` / `↓` | Substring history search (`zsh-history-substring-search`) |
+| `ls` / `ll` / `la` / `tree` | `eza` with Nerd Font icons, git status column, and custom 256-color Cyberpunk palette |
+| `gadog` / `glog` | Compact git graph (`--all --decorate --oneline --graph`) with auto-quit pager |
+| `dotfiles` | Jump directly to this `my-mac-setup` repository |
+
+### 🔧 Customization (Environment Overrides)
+All scripts share a single configuration header in [`scripts/_styles.sh`](scripts/_styles.sh). Override any variable in `~/.config/zsh/.zshenv` without modifying the scripts:
+
+| Variable | Default | Description |
+|:---|:---|:---|
+| `CODING_ROOT` | `~/Desktop/coding` | Root directory scanned by `new`, `pj`, `use`, `morning`, and `week` |
+| `GITHUB_USER` | `cunhanina` | GitHub username used by `new` for Go modules and remote URLs |
+| `WEATHER_CITY` | `Curitiba` | Location queried by `morning` via `wttr.in` |
+| `NOTES_FILE` | `~/Desktop/notes.md` | Global task list file used by `note`, `morning`, and `week` |
+| `JOURNAL_FILE` | `~/Desktop/journal.md` | Markdown journal file used by `journal` and `week` |
+
 ---
 
 ## 🆚 VS Code Config
@@ -128,10 +152,7 @@ disappear.
 * **UI:** No minimap, no breadcrumbs, sticky scroll, bracket pair guides.
 
 ### 📥 Install Settings
-```bash
-mkdir -p ~/Library/Application\ Support/Code/User
-cp vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
-```
+`./install.sh` automatically symlinks `vscode/settings.json` to `~/Library/Application Support/Code/User/settings.json`.
 
 ---
 
@@ -141,27 +162,22 @@ cp vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
 ```bash
 xcode-select --install
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install --cask raycast font-jetbrains-mono-nerd-font
-brew install git gh bat glow uv go fzf fd eza zoxide ripgrep starship icalbuddy
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
 ### Phase 2: Clone and Install
 ```bash
-gh auth login
 git clone https://github.com/cunhanina/my-mac-setup.git
 cd my-mac-setup
-./install.sh
+./install.sh --bundle   # installs Brewfile packages, links scripts, ZDOTDIR & VS Code settings
+gh auth login
 ```
 
-`install.sh` does two things:
-1. Symlinks everything in `scripts/` (except `use`, which is alias-only —
-   see [Shell Config](#-shell-config-zdotdir)) into `~/bin`.
-2. Ensures `~/.zshenv` sets `ZDOTDIR=$HOME/.config/zsh`, then symlinks
-   every file in `config/` into `~/.config/zsh/`.
-
-It's idempotent — safe to re-run any time after editing a script or config
-file to relink it.
+`install.sh` is idempotent and does four things:
+1. Symlinks everything in `scripts/` into `~/bin` (linking `_styles.sh` and `_use.sh` as sourced helpers).
+2. Ensures `~/.zshenv` sets `ZDOTDIR=$HOME/.config/zsh`, then symlinks every file in `config/` into `~/.config/zsh/`.
+3. Symlinks `vscode/settings.json` into `~/Library/Application Support/Code/User/settings.json`.
+4. Configures macOS native screenshots to save cleanly to `~/Screenshots` (and optionally runs `brew bundle` when passed `--bundle`).
 
 Restart your terminal (or run `exec zsh`) afterward. You should see the
 Starship prompt (git branch, status icons) rendering — if you still see a

@@ -1,4 +1,5 @@
 .DS_Store
+.vscode/
 
 # Zsh runtime/cache — not source, shouldn't be tracked
 config/.zcompdump*

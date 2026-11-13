@@ -1,19 +1,52 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
 
-GITHUB_USER="cunhanina"
-CODING_ROOT="$HOME/Desktop/coding"
+# ---------------------------------------------------------------------------
+# new — multi-language project scaffolder
+#
+# Usage:
+#   new <py|cpp|go> <name> [--local] [--public]
+# ---------------------------------------------------------------------------
 
 usage() {
-    err "Usage: new <language> <project_name>"
-    row "Languages" "py, cpp, go"
-    exit 1
+    header "new — Project Scaffolder"
+    row "new <lang> <name>" "Create project, init git, push private GitHub repo, open VS Code"
+    row "Languages" "py (uv + ruff + pytest), cpp (CMake + C++17), go (cmd/ + internal/)"
+    row "--local" "Skip creating a remote GitHub repository"
+    row "--public" "Create a public GitHub repository (default: private)"
+    exit "${1:-1}"
 }
 
-[[ -z "$1" || -z "$2" ]] && usage
+[[ "$1" == "-h" || "$1" == "--help" ]] && usage 0
+[[ -z "$1" || -z "$2" ]] && usage 1
 
 LANG=$1
 NAME=$2
+shift 2
+
+LOCAL_ONLY=false
+VISIBILITY="--private"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --local|-l)
+            LOCAL_ONLY=true
+            shift
+            ;;
+        --public|-p)
+            VISIBILITY="--public"
+            shift
+            ;;
+        -h|--help)
+            usage 0
+            ;;
+        *)
+            err "Unknown option: $1"
+            usage 1
+            ;;
+    esac
+done
+
 BASE_DIR="$CODING_ROOT/$LANG"
 TARGET_DIR="$BASE_DIR/$NAME"
 
@@ -160,18 +193,37 @@ printf "# To-Do: %s\n\n- [ ] Initial setup complete\n- [ ] \n" "$NAME" > todo.md
 
 step "Initializing Git..."
 git init -q
-curl -s "https://raw.githubusercontent.com/github/gitignore/main/${GITIGNORE_LANG}.gitignore" > .gitignore
-printf "\n# Local Notes\ntodo.md\n" >> .gitignore
-printf "\n# VSCode\n.vscode/\n" >> .gitignore
+if ! curl -fsSL --max-time 4 "https://raw.githubusercontent.com/github/gitignore/main/${GITIGNORE_LANG}.gitignore" > .gitignore 2>/dev/null; then
+    cat <<EOF > .gitignore
+# Build & runtime artifacts
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+build/
+dist/
+*.egg-info/
+*.o
+*.out
+EOF
+fi
+printf "\n# Local Notes & Env\ntodo.md\n.env\n.DS_Store\n\n# VSCode\n.vscode/\n" >> .gitignore
 
 git add .
 git commit -m "Initial setup ($LANG)" -q
 ok "Local project structure created."
 
-if command -v gh &>/dev/null; then
-    step "Creating private repository on GitHub..."
-    gh repo create "$NAME" --private --source=. --remote=origin --push > /dev/null
-    ok "Live at https://github.com/$GITHUB_USER/$NAME (Private)"
+if $LOCAL_ONLY; then
+    info "Skipped GitHub repo creation (--local)."
+elif command -v gh &>/dev/null; then
+    step "Creating ${VISIBILITY#--} repository on GitHub..."
+    if gh repo create "$NAME" "$VISIBILITY" --source=. --remote=origin --push > /dev/null 2>&1; then
+        ok "Live at https://github.com/$GITHUB_USER/$NAME (${VISIBILITY#--})"
+    else
+        warn "GitHub repo creation failed (check network or 'gh auth status'). Project is local."
+    fi
 else
     warn "GitHub CLI not found. Project is local only."
 fi

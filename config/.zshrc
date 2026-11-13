@@ -16,12 +16,17 @@
 # =========================================================
 export ZDOTDIR="$HOME/.config/zsh"
 export ZCOMPDUMP="$ZDOTDIR/.zcompdump"
+export ZSH_COMPDUMP="$ZCOMPDUMP"
 
 # =========================================================
 # Homebrew Path (Must be at the top)
 # =========================================================
 
-eval "$(/opt/homebrew/bin/brew shellenv)"
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv)"
+fi
 
 # =========================================================
 # Default Editor Setup
@@ -35,12 +40,17 @@ export VISUAL="code -w"
 # =========================================================
 
 export ZSH="$HOME/.oh-my-zsh"
-# Leaving theme blank because Starship handles the prompt
+# Leaving theme blank because Starship handles the prompt (in prompt.zsh)
 ZSH_THEME=""
 
-# Load plugins
-plugins=(git fast-syntax-highlighting zsh-autosuggestions zsh-history-substring-search zsh-vi-mode)
-source $ZSH/oh-my-zsh.sh
+# Load built-in git plugin from Oh My Zsh; external plugins are loaded by plugins.zsh
+plugins=(git)
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+  source "$ZSH/oh-my-zsh.sh"
+else
+  autoload -Uz compinit
+  compinit -d "$ZCOMPDUMP"
+fi
 
 # =========================================================
 # eza Colors (256-Color Cyberpunk Theme)
@@ -56,7 +66,7 @@ export EZA_COLORS="di=38;5;213:fi=38;5;253:da=38;5;117:uu=38;5;141:gu=38;5;141:s
 # History
 # =========================================================
 
-# Updated to keep history file out of your home directory
+# Keep history file inside ZDOTDIR
 HISTFILE="$ZDOTDIR/.zsh_history"
 HISTSIZE=100000
 SAVEHIST=100000
@@ -81,14 +91,7 @@ setopt NUMERIC_GLOB_SORT  # sort file10 after file9, not after file1
 # =========================================================
 
 # Initialize zoxide (smarter cd)
-eval "$(zoxide init zsh)"
-
-# Initialize starship prompt with explicit config path
-eval "$(starship init zsh)"
-
-# Load completion system
-autoload -Uz compinit
-compinit -d "$ZCOMPDUMP"
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 
 # Enable interactive completion menu selection
 zstyle ':completion:*' menu select
@@ -109,7 +112,7 @@ elif [[ -f /usr/local/opt/fzf/shell/key-bindings.zsh ]]; then
 fi
 
 # =========================================================
-# Python / uv
+# Python / uv & Personal Scripts
 # =========================================================
 
 export PATH="$HOME/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
@@ -119,6 +122,7 @@ export PATH="$HOME/bin:$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 # =========================================================
 
 # Loop through all .zsh files in the config directory and source them
+# (Starship prompt is initialized inside prompt.zsh)
 for config_file in "$ZDOTDIR"/*.zsh; do
   if [[ -f "$config_file" ]]; then
     source "$config_file"

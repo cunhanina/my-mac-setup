@@ -1,5 +1,28 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
+
+# ---------------------------------------------------------------------------
+# note — context-aware task & markdown note manager
+#
+# Usage:
+#   note                      view pending tasks and formatted markdown
+#   note <text>               add a new pending task
+#   note done [number]        mark task # complete (or interactive fzf if omitted)
+#   note sub <number> <text>  append a sub-bullet under task #
+#   note rm <number>          delete pending task #
+#   note edit                 open active note file in $EDITOR
+# ---------------------------------------------------------------------------
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "note — Context-Aware Task Manager"
+    row "note" "View pending tasks (project todo.md or global notes.md)"
+    row "note <task>" "Add a new task to the current context"
+    row "note done [num]" "Complete task # (or interactive fzf picker if no number)"
+    row "note sub <num> <txt>" "Add a sub-note under task #"
+    row "note rm <num>" "Remove pending task #"
+    row "note edit" "Open the active note file in \$EDITOR"
+    exit 0
+fi
 
 # --- 1. DETECT CONTEXT ---
 if git rev-parse --git-dir > /dev/null 2>&1; then
@@ -10,7 +33,7 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
         printf "# 📝 To-Do: %s\n\n" "$(basename "$PROJECT_ROOT")" > "$CURRENT_FILE"
     fi
 else
-    CURRENT_FILE="$HOME/Desktop/notes.md"
+    CURRENT_FILE="$NOTES_FILE"
     CONTEXT="🌍 GLOBAL NOTES"
     touch "$CURRENT_FILE"
 fi
@@ -18,7 +41,15 @@ fi
 # --- 2. HELPER FUNCTIONS ---
 get_line_number() {
     local task_num=$1
-    grep -n "\- \[ \]" "$CURRENT_FILE" | sed -n "${task_num}p" | cut -d: -f1
+    grep -n "^[ \t]*[-*] \[ \]" "$CURRENT_FILE" | sed -n "${task_num}p" | cut -d: -f1
+}
+
+mark_line_done() {
+    local real_line=$1
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M')
+    sed -i '' "${real_line}s/\[ \]/\[x\]/" "$CURRENT_FILE"
+    sed -i '' "${real_line}s/$/ (Done: $timestamp)/" "$CURRENT_FILE"
 }
 
 # --- 3. COMMAND LOGIC ---
@@ -26,19 +57,24 @@ get_line_number() {
 # MODE: VIEW (No arguments)
 if [ -z "$1" ]; then
     header "$CONTEXT"
-    
+
     if [ ! -s "$CURRENT_FILE" ]; then
         warn "List is empty."
         exit 0
     fi
 
     # 1. Show the "Interactive List" (So you know the numbers)
-    echo "${BOLD}Pending Tasks (Use number to complete):${RESET}"
-    grep "\- \[ \]" "$CURRENT_FILE" | awk '{print "  " NR ". " substr($0, 7)}'
-    
+    PENDING=$(grep "^[ \t]*[-*] \[ \]" "$CURRENT_FILE" 2>/dev/null)
+    if [[ -n "$PENDING" ]]; then
+        echo "${BOLD}Pending Tasks (Use 'note done <number>' or 'note done' to complete):${RESET}"
+        echo "$PENDING" | sed -E 's/^[ \t]*[-*] \[ \] //' | awk '{print "  " NR ". " $0}'
+    else
+        ok "All tasks completed!"
+    fi
+
     echo ""
     echo "───────────────────────────────────────────────"
-    
+
     # 2. Show the "Beautiful View" using Glow
     if command -v glow &>/dev/null; then
         glow "$CURRENT_FILE" -w 0
@@ -50,23 +86,62 @@ if [ -z "$1" ]; then
     exit 0
 fi
 
+# MODE: EDIT
+if [[ "$1" == "edit" || "$1" == "e" ]]; then
+    ${=EDITOR:-code -w} "$CURRENT_FILE"
+    exit 0
+fi
+
 # MODE: DONE
-# FIX: removed dead $CMD check — $CMD was never set, causing done/x to fall
-# through to ADD mode and append "done 1" as a new task instead of marking one complete.
 if [[ "$1" == "done" || "$1" == "x" ]]; then
     shift
-
     TASK_INDEX=$1
-    if [ -z "$TASK_INDEX" ]; then err "Usage: note done <number>"; exit 1; fi
-    
+
+    # Interactive fzf selection when no number is provided
+    if [ -z "$TASK_INDEX" ]; then
+        if ! command -v fzf &>/dev/null; then
+            err "Usage: note done <number>"
+            exit 1
+        fi
+        PENDING_LINES=$(grep -n "^[ \t]*[-*] \[ \]" "$CURRENT_FILE" 2>/dev/null)
+        if [[ -z "$PENDING_LINES" ]]; then
+            ok "No pending tasks to complete."
+            exit 0
+        fi
+        SELECTED=$(echo "$PENDING_LINES" \
+            | awk -F: '{sub(/^[ \t]*[-*] \[ \] /, "", $2); print NR "\t" $1 "\t" $2}' \
+            | fzf --multi --with-nth=1,3 --delimiter=$'\t' \
+                  --prompt="Complete task(s) [Tab to multi-select] ➜ " \
+                  --height=40% --reverse --border=rounded)
+        [[ -z "$SELECTED" ]] && exit 0
+
+        # Process in reverse line order just in case
+        echo "$SELECTED" | awk -F'\t' '{print $2, $3}' | sort -rn | while read -r line_num task_text; do
+            mark_line_done "$line_num"
+            ok "Completed: $task_text"
+        done
+        exit 0
+    fi
+
     REAL_LINE=$(get_line_number "$TASK_INDEX")
     if [ -z "$REAL_LINE" ]; then err "Task #$TASK_INDEX not found."; exit 1; fi
-    
-    sed -i '' "${REAL_LINE}s/\[ \]/\[x\]/" "$CURRENT_FILE"
-    TIMESTAMP=$(date '+%Y-%m-%d %H:%M')
-    sed -i '' "${REAL_LINE}s/$/ (Done: $TIMESTAMP)/" "$CURRENT_FILE"
-    
+
+    mark_line_done "$REAL_LINE"
     ok "Task #$TASK_INDEX marked as done."
+    exit 0
+fi
+
+# MODE: REMOVE TASK
+if [[ "$1" == "rm" || "$1" == "del" ]]; then
+    shift
+    TASK_INDEX=$1
+    if [ -z "$TASK_INDEX" ]; then err "Usage: note rm <number>"; exit 1; fi
+
+    REAL_LINE=$(get_line_number "$TASK_INDEX")
+    if [ -z "$REAL_LINE" ]; then err "Task #$TASK_INDEX not found."; exit 1; fi
+
+    sed -i '' "${REAL_LINE}d" "$CURRENT_FILE"
+    ok "Task #$TASK_INDEX removed."
     exit 0
 fi
 
@@ -76,16 +151,16 @@ if [[ "$1" == "sub" ]]; then
     TASK_INDEX=$1
     shift
     NOTE_TEXT="$*"
-    
+
     if [ -z "$TASK_INDEX" ] || [ -z "$NOTE_TEXT" ]; then err "Usage: note sub <number> <text>"; exit 1; fi
-    
+
     REAL_LINE=$(get_line_number "$TASK_INDEX")
     if [ -z "$REAL_LINE" ]; then err "Task #$TASK_INDEX not found."; exit 1; fi
-    
+
     sed -i '' "${REAL_LINE}a\\
     - $NOTE_TEXT
 " "$CURRENT_FILE"
-    
+
     ok "Added sub-note."
     exit 0
 fi
@@ -94,5 +169,6 @@ fi
 TASK="$*"
 echo "- [ ] $TASK" >> "$CURRENT_FILE"
 ok "Task added."
+
 
 

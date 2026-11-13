@@ -1,67 +1,104 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
 
-# FIX: check git context FIRST, before reading branch or doing anything else.
-# Previously BRANCH=$(git rev-parse ...) ran before the repo check, printing
-# a stray error and silently setting BRANCH="" whenever run outside a repo.
+# ---------------------------------------------------------------------------
+# save — smart git add + commit + rebase-aware push
+#
+# Usage:
+#   save [commit message]
+# ---------------------------------------------------------------------------
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "save — Smart Git Sync"
+    row "save" "Stage all changes, commit with timestamp, and sync with remote"
+    row "save \"<message>\"" "Stage all changes, commit with custom message, and sync"
+    exit 0
+fi
+
+# Check git context first
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
     err "Not a git repository."
     exit 1
 fi
 
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-MSG="${1:-Update: $(date '+%Y-%m-%d %H:%M')}"
+MSG="${*:-Update: $(date '+%Y-%m-%d %H:%M')}"
 
 header "💾 Saving Progress ($BRANCH)..."
 
-# 1. Add & Commit
-# We check status first to avoid "nothing to commit" errors
-if [ -n "$(git status --porcelain)" ]; then
-    echo "  👉 Adding files..."
+# 0. Safety check: warn before staging untracked .env files or files >50MB
+PORCELAIN=$(git status --porcelain)
+if [ -n "$PORCELAIN" ]; then
+    ENV_FILES=$(echo "$PORCELAIN" | awk '{print $2}' | grep -E '(^|/)\.env(\..+)?$' | grep -vE '\.env\.(example|sample|template)$' || true)
+    LARGE_FILES=$(find "$PROJECT_ROOT" -path "$PROJECT_ROOT/.git" -prune -o -type f -size +50M -print 2>/dev/null \
+        | sed "s|$PROJECT_ROOT/||" \
+        | while read -r f; do git check-ignore -q "$f" || echo "$f"; done)
+
+    if [[ -n "$ENV_FILES" || -n "$LARGE_FILES" ]]; then
+        [[ -n "$ENV_FILES" ]] && warn "Sensitive .env file(s) detected: $ENV_FILES"
+        [[ -n "$LARGE_FILES" ]] && warn "File(s) >50MB detected: $LARGE_FILES"
+        echo -n "  ⚠️  Stage and commit these anyway? [y/N] "
+        read -r CONFIRM
+        if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+            info "Aborted. Add them to .gitignore before running 'save'."
+            exit 1
+        fi
+    fi
+
+    echo "  👉 Changes to stage:"
+    git status -s | sed 's/^/     /'
     git add .
-    echo "  👉 Committing..."
+    echo "  👉 Committing: \"$MSG\""
     git commit -m "$MSG" -q
 else
-    echo "  👉 No new changes to commit. Checking for push..."
+    echo "  👉 No new local changes to commit. Checking remote..."
 fi
 
 # 2. Smart Push Logic
+if ! git remote get-url origin &>/dev/null; then
+    ok "Committed locally (no 'origin' remote configured)."
+    exit 0
+fi
+
 echo "  👉 Checking remote status..."
-git fetch -q
+git fetch -q origin "$BRANCH" 2>/dev/null || git fetch -q 2>/dev/null
 
 # Check if we are behind (remote has commits we don't)
-BEHIND_COUNT=$(git rev-list HEAD..origin/$BRANCH --count 2>/dev/null || echo 0)
+BEHIND_COUNT=$(git rev-list "HEAD..origin/$BRANCH" --count 2>/dev/null || echo 0)
 
 if [ "$BEHIND_COUNT" -gt 0 ]; then
-    warn "Remote has changes you don't have!"
+    warn "Remote has $BEHIND_COUNT commit(s) you don't have!"
     echo "${BOLD}Incoming changes:${RESET}"
-    git log HEAD..origin/$BRANCH --oneline --color | sed 's/^/  /'
-    
+    git --no-pager log "HEAD..origin/$BRANCH" --oneline --color | sed 's/^/  /'
+
     echo ""
-    echo -n "  🔄 Sync (pull) changes and push? [y/N] "
-    read RESPONSE
-    
+    echo -n "  🔄 Sync (pull --rebase) and push? [y/N] "
+    read -r RESPONSE
+
     if [[ "$RESPONSE" =~ ^[Yy]$ ]]; then
         echo "  ⬇️  Pulling changes..."
-        if git pull --rebase -q; then
+        if git pull --rebase -q origin "$BRANCH"; then
             echo "  ⬆️  Pushing..."
-            git push -q
+            git push -u origin "$BRANCH" -q
             ok "Synced & Saved successfully!"
         else
-            err "Pull failed (conflict). Please fix manually."
+            err "Pull failed (conflict). Resolve conflicts and run 'git rebase --continue'."
             exit 1
         fi
     else
-        warn "Push cancelled. Use 'git pull' manually when ready."
+        warn "Push cancelled. Run 'git pull --rebase' manually when ready."
         exit 0
     fi
 else
     echo "  ⬆️  Pushing..."
-    if git push -q; then
+    if git push -u origin "$BRANCH" -q; then
         ok "Saved & Pushed successfully!"
     else
         warn "Push failed (check internet or permissions)."
+        exit 1
     fi
 fi
+
 
 

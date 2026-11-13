@@ -9,23 +9,69 @@
 # @raycast.icon 🧹
 # @raycast.packageName System
 
-# Runs the no-argument path of the clean script: DNS flush + purge + brew cleanup.
-# For app-specific cleanup, use the terminal: clean <AppName>
-
 source "$HOME/bin/_styles.sh"
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "clean — System & App Cache Maintenance"
+    row "clean" "Flush DNS, purge inactive RAM, and run brew cleanup"
+    row "clean <AppName>" "Find & remove leftover ~/Library files for an uninstalled app"
+    exit 0
+fi
+
+# App-specific leftover cleanup: clean <AppName>
+if [[ -n "$1" ]]; then
+    APP="$1"
+    header "App Cleanup: $APP"
+
+    step "Searching ~/Library for leftover '$APP' files..."
+    matches=$(mdfind -onlyin "$HOME/Library" "kMDItemFSName == '*${APP}*'c" 2>/dev/null \
+        | grep -E "Application Support|Caches|Preferences|Saved Application State|Logs|Containers" || true)
+
+    if [[ -z "$matches" ]]; then
+        ok "No leftover files found for '$APP'."
+        exit 0
+    fi
+
+    echo "$matches" | sed 's/^/  • /'
+    echo ""
+    warn "Found the above files."
+    read -q "REPLY?  Delete them permanently? (y/N) "
+    echo ""
+
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+        while IFS= read -r item; do
+            [[ -n "$item" ]] && rm -rf "$item"
+        done <<< "$matches"
+        ok "Removed leftover files for '$APP'."
+    else
+        info "Aborted."
+    fi
+    exit 0
+fi
 
 header "System Maintenance"
 
-echo "  Flushing DNS..."
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
+if [[ -t 0 ]] || sudo -n true 2>/dev/null; then
+    step "Flushing DNS cache..."
+    sudo dscacheutil -flushcache
+    sudo killall -HUP mDNSResponder 2>/dev/null || true
 
-echo "  Purging inactive memory..."
-sudo purge
+    step "Purging inactive memory..."
+    sudo purge
+else
+    warn "Non-interactive session (skipping sudo DNS flush & RAM purge; run 'clean' in terminal for sudo steps)."
+fi
 
 if command -v brew &>/dev/null; then
-    echo "  Cleaning Homebrew..."
+    step "Cleaning Homebrew cache & old versions..."
     brew cleanup -s &>/dev/null
+    ok "Homebrew cache cleaned."
+fi
+
+if command -v uv &>/dev/null; then
+    step "Pruning unused uv cache..."
+    uv cache prune --quiet 2>/dev/null || true
+    ok "uv cache pruned."
 fi
 
 ok "System optimized."

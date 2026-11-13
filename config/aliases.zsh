@@ -43,15 +43,28 @@ lf() { # zsh follow lf navigation
 }
 
 # =========================================================
-# Git
+# Git & Setup
 # =========================================================
 
 alias glog='PAGER="less -F -X" git log'                              # -F quit if one screen, -X no clear on exit
 alias gadog='PAGER="less -F -X" git log --all --decorate --oneline --graph'
-alias dotfiles='git --git-dir=$HOME/.dotfiles --work-tree=$HOME'
+alias dotfiles='cd "${CODING_ROOT:-$HOME/Desktop/coding}/shell/my-mac-setup"'
 
 # =========================================================
-# Video
+# Python / Workflow
 # =========================================================
 
-alias stream='mpv av://v4l2:/dev/video4 --fullscreen --demuxer-lavf-o=input_format=mjpeg,framerate=30 --profile=low-latency --untimed'
+# Must stay an alias so `source .venv/bin/activate` runs in the current shell
+alias use='source "$HOME/bin/_use.sh"'
+
+# Interactive project jumper: `pj` cd's in current shell; `pj -t` opens iTerm tab; `pj -c` opens VS Code
+pj() {
+    if [[ "$1" == "-t" || "$1" == "--tab" || "$1" == "-c" || "$1" == "--code" || "$1" == "-h" || "$1" == "--help" ]]; then
+        "$HOME/bin/pj" "$@"
+    else
+        local dir
+        dir=$("$HOME/bin/pj" --print "$@")
+        [[ -n "$dir" && -d "$dir" ]] && cd "$dir"
+    fi
+}
+

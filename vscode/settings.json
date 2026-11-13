@@ -101,5 +101,11 @@
     // --- BREADCRUMBS & MISC ---
     "breadcrumbs.enabled": false,
     "telemetry.telemetryLevel": "off",
-    "workbench.colorTheme": "Dracula Purple"
+    "workbench.colorTheme": "Dracula Purple",
+
+    // --- PROJECT MANAGER ---
+    "projectManager.git.baseFolders": [
+        "~/Desktop/coding"
+    ],
+    "projectManager.openInNewWindowWhenClickingInStatusBar": true
 }

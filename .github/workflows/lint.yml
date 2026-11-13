@@ -1,0 +1,38 @@
+name: Lint & Syntax Check
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  zsh-check:
+    name: Zsh Syntax & Script Verification
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Zsh syntax on all scripts and configs
+        run: |
+          zsh -n install.sh
+          for f in config/.zprofile config/.zshenv config/.zshrc config/*.zsh; do
+            echo "Checking $f..."
+            zsh -n "$f"
+          done
+          for s in scripts/*; do
+            echo "Checking $s..."
+            zsh -n "$s"
+          done
+
+      - name: Verify --help flag on all CLI commands
+        run: |
+          mkdir -p "$HOME/bin"
+          ln -sf "$PWD/scripts/_styles.sh" "$HOME/bin/_styles.sh"
+          for s in scripts/*; do
+            name=$(basename "$s")
+            [[ "$name" == "_styles.sh" || "$name" == "use" ]] && continue
+            chmod +x "$s"
+            "$s" --help > /dev/null
+          done

@@ -1,5 +1,11 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "update — Full Toolchain Updater"
+    row "update" "Update Homebrew packages, uv, Oh My Zsh, and Zsh plugins"
+    exit 0
+fi
 
 header "SYSTEM UPDATE"
 
@@ -31,8 +37,18 @@ echo ""
 if [ -f "$ZSH/tools/upgrade.sh" ]; then
     row "Oh My Zsh" "Updating..."
     # We run this in a subshell to prevent it from restarting the terminal mid-script
-    env ZSH=$ZSH sh $ZSH/tools/upgrade.sh
-    ok "Shell updated"
+    env ZSH="$ZSH" sh "$ZSH/tools/upgrade.sh"
+    ok "Oh My Zsh updated"
+fi
+
+# 4. Update standalone Zsh plugins in $ZDOTDIR/plugins
+ZPLUGINDIR="${ZDOTDIR:-$HOME/.config/zsh}/plugins"
+if [ -d "$ZPLUGINDIR" ]; then
+    echo ""
+    row "Zsh Plugins" "Updating..."
+    for dir in "$ZPLUGINDIR"/*(/N); do
+        git -C "$dir" pull --ff-only -q 2>/dev/null && ok "Updated ${dir:t}"
+    done
 fi
 
 echo ""

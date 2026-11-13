@@ -1,7 +1,46 @@
 #!/bin/zsh
-source ~/bin/_styles.sh
+source "$HOME/bin/_styles.sh"
 
-CODING_ROOT="$HOME/Desktop/coding"
+# ---------------------------------------------------------------------------
+# pj — interactive fzf project jumper
+#
+# Usage:
+#   pj [query]          jump to project (in current shell when wrapped, or new iTerm tab)
+#   pj -t / --tab       open project in a new iTerm tab
+#   pj -c / --code      open project in VS Code
+#   pj --print [query]  print selected project path to stdout (used by shell wrapper)
+# ---------------------------------------------------------------------------
+
+MODE="tab"
+QUERY=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            header "pj — Interactive Project Jumper"
+            row "pj [query]" "Fuzzy-find a project and cd into it (or open tab)"
+            row "pj -t [query]" "Open selected project in a new iTerm tab"
+            row "pj -c [query]" "Open selected project in VS Code"
+            exit 0
+            ;;
+        -t|--tab)
+            MODE="tab"
+            shift
+            ;;
+        -c|--code)
+            MODE="code"
+            shift
+            ;;
+        --print)
+            MODE="print"
+            shift
+            ;;
+        *)
+            QUERY="$1"
+            shift
+            ;;
+    esac
+done
 
 if ! command -v fzf &>/dev/null; then
     err "fzf not found. Install with: brew install fzf"
@@ -13,19 +52,50 @@ if [[ ! -d "$CODING_ROOT" ]]; then
     exit 1
 fi
 
-# Any directory two levels deep containing a .git is a project.
-# (matches the new/health/week convention: <lang>/<project-name>/.git)
+PREVIEW_CMD="dir=\"$CODING_ROOT/{}\"; \
+echo \"\033[1;36m➜ Git Status\033[0m\"; \
+git -C \"\$dir\" status -sb --color=always 2>/dev/null; \
+echo \"\"; \
+echo \"\033[1;36m➜ Recent Commits\033[0m\"; \
+git -C \"\$dir\" log -n 5 --oneline --color=always 2>/dev/null; \
+if [ -f \"\$dir/todo.md\" ]; then \
+  echo \"\"; \
+  echo \"\033[1;36m➜ Pending Tasks\033[0m\"; \
+  grep -E '^[ \t]*[-*] \[ \]' \"\$dir/todo.md\" 2>/dev/null | head -10; \
+fi"
+
 SELECTION=$(find "$CODING_ROOT" -mindepth 1 -maxdepth 3 -name ".git" -type d 2>/dev/null \
     | sed 's|/\.git$||' \
     | sed "s|$CODING_ROOT/||" \
     | sort \
-    | fzf --prompt="Jump to project ➜ " --height=40% --reverse --border)
+    | fzf --prompt="Jump to project ➜ " \
+          --height=60% \
+          --reverse \
+          --border=rounded \
+          --query="$QUERY" \
+          --select-1 \
+          --preview="$PREVIEW_CMD" \
+          --preview-window="right:55%:wrap")
 
 [[ -z "$SELECTION" ]] && exit 0
 
 TARGET_DIR="$CODING_ROOT/$SELECTION"
 
-osascript <<EOF
+case "$MODE" in
+    print)
+        echo "$TARGET_DIR"
+        ;;
+    code)
+        if command -v code &>/dev/null; then
+            code "$TARGET_DIR"
+            ok "Opened $SELECTION in VS Code."
+        else
+            err "VS Code CLI ('code') not found in PATH."
+            exit 1
+        fi
+        ;;
+    tab)
+        osascript <<EOF
 tell application "iTerm"
     activate
     tell current window
@@ -36,3 +106,6 @@ tell application "iTerm"
     end tell
 end tell
 EOF
+        ;;
+esac
+

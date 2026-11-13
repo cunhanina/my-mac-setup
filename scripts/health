@@ -11,6 +11,12 @@
 
 source "$HOME/bin/_styles.sh"
 
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    header "health — System Vitals & Dev Stack Dashboard"
+    row "health" "Show CPU, RAM pressure, disk, battery health, network, and dev tools"
+    exit 0
+fi
+
 check_health() {
     local val=${1%%%}
     local limit=$2
@@ -108,6 +114,40 @@ command -v uv &>/dev/null \
     && row "uv" "${GREEN}v$(uv --version | awk '{print $2}')${RESET}" \
     || row "uv" "${RED}not installed${RESET}"
 
+command -v go &>/dev/null \
+    && row "Go" "${GREEN}$(go version | awk '{print $3}')${RESET}" \
+    || row "Go" "${YELLOW}not installed${RESET}"
+
 pgrep -f Docker >/dev/null \
     && row "Docker" "${GREEN}Running${RESET}" \
     || row "Docker" "${YELLOW}Stopped${RESET}"
+
+# Check core CLI tools from the setup stack
+REQUIRED_TOOLS=(fzf fd rg bat eza zoxide starship gh icalbuddy)
+MISSING_TOOLS=()
+for tool in "${REQUIRED_TOOLS[@]}"; do
+    command -v "$tool" &>/dev/null || MISSING_TOOLS+=("$tool")
+done
+
+if [ "${#MISSING_TOOLS[@]}" -eq 0 ]; then
+    row "CLI Stack" "${GREEN}All ${#REQUIRED_TOOLS[@]} tools installed${RESET}"
+else
+    row "CLI Stack" "${YELLOW}Missing: ${(j:, :)MISSING_TOOLS}${RESET}"
+fi
+
+# Check symlinks in ~/bin and $ZDOTDIR
+BROKEN_LINKS=()
+for dir in "$HOME/bin" "${ZDOTDIR:-$HOME/.config/zsh}"; do
+    if [ -d "$dir" ]; then
+        while IFS= read -r -d '' link; do
+            BROKEN_LINKS+=("$(basename "$link")")
+        done < <(find "$dir" -maxdepth 1 -type l ! -exec test -e {} \; -print0 2>/dev/null)
+    fi
+done
+
+if [ "${#BROKEN_LINKS[@]}" -eq 0 ]; then
+    row "Dotfile Links" "${GREEN}Healthy (~/bin & \$ZDOTDIR)${RESET}"
+else
+    row "Dotfile Links" "${RED}Broken: ${(j:, :)BROKEN_LINKS}${RESET}"
+fi
+
